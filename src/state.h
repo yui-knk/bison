@@ -124,16 +124,6 @@ typedef struct
 # define TRANSITION_SYMBOL(Transitions, Num) \
   (Transitions->states[Num]->accessing_symbol)
 
-/* Is the TRANSITIONS->states[Num] a shift? (as opposed to gotos).  */
-
-# define TRANSITION_IS_SHIFT(Transitions, Num) \
-  (ISTOKEN (TRANSITION_SYMBOL (Transitions, Num)))
-
-/* Is the TRANSITIONS->states[Num] a goto?. */
-
-# define TRANSITION_IS_GOTO(Transitions, Num) \
-  (!TRANSITION_IS_SHIFT (Transitions, Num))
-
 /* Is the TRANSITIONS->states[Num] labelled by the error token?  */
 
 # define TRANSITION_IS_ERROR(Transitions, Num) \
@@ -154,7 +144,7 @@ typedef struct
   for (Iter = 0;                                                \
        Iter < Transitions->num                                  \
          && (TRANSITION_IS_DISABLED (Transitions, Iter)         \
-             || TRANSITION_IS_SHIFT (Transitions, Iter));       \
+             || transition_is_shift (Transitions, Iter));       \
        ++Iter)                                                  \
     if (!TRANSITION_IS_DISABLED (Transitions, Iter))
 
@@ -277,5 +267,18 @@ extern state **states;
 
 /* Free all the states.  */
 void states_free (void);
+
+
+
+/* Is the TRANS->states[Num] a shift? (as opposed to gotos).  */
+static inline bool transition_is_shift (const transitions *trans, int num)
+{
+  return ISTOKEN (TRANSITION_SYMBOL (trans, num));
+}
+
+/* Is the TRANS->states[Num] a goto? */
+bool transition_is_goto (const transitions *trans, int num);
+
+symbol_number goto_symbol (const transitions *trans, int num);
 
 #endif /* !STATE_H_ */

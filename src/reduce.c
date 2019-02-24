@@ -195,6 +195,13 @@ inaccessable_symbols (void)
   bitset_free (P);
   P = Pp;
 
+  /* Mark useless chain rules as useless. */
+  if ((false))
+    if (feature_flag & feature_eliminate_chains)
+      for (rule_number r = 0; r < nrules; ++r)
+        if (rule_useless_chain_p (&rules[r]))
+          bitset_reset (P, r);
+
   int nuseful_productions = bitset_count (P);
   nuseless_productions = nrules - nuseful_productions;
 

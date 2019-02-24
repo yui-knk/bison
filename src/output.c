@@ -29,6 +29,7 @@
 #include <timevar.h>
 #include <wait-process.h>
 
+#include "chain.h" /* chain_leaf */
 #include "complain.h"
 #include "files.h"
 #include "getargs.h"
@@ -237,7 +238,7 @@ prepare_rules (void)
       /* Line where rule was defined. */
       rline[r] = rules[r].location.start.line;
       /* LHS of the rule R. */
-      r1[r] = rules[r].lhs->number;
+      r1[r] = chain_leaf (rules[r].lhs->number);
       /* Length of rule R's RHS. */
       r2[r] = rule_rhs_length (&rules[r]);
       /* Dynamic precedence (GLR).  */
@@ -674,6 +675,7 @@ prepare (void)
 
   /* Flags. */
   MUSCLE_INSERT_BOOL ("defines_flag", defines_flag);
+  MUSCLE_INSERT_BOOL ("eliminate_chains_flag", !!(feature_flag & feature_eliminate_chains));
   MUSCLE_INSERT_BOOL ("glr_flag", glr_parser);
   MUSCLE_INSERT_BOOL ("nondeterministic_flag", nondeterministic_parser);
   MUSCLE_INSERT_BOOL ("synclines_flag", !no_lines_flag);

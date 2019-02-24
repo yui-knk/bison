@@ -28,7 +28,9 @@
 #include <bitset.h>
 #include <bitsetv.h>
 
+#include "chain.h"
 #include "complain.h"
+#include "closure.h"
 #include "derives.h"
 #include "getargs.h"
 #include "gram.h"
@@ -45,6 +47,7 @@ goto_number *goto_map = NULL;
 goto_number ngotos = 0;
 state_number *from_state = NULL;
 state_number *to_state = NULL;
+symbol_number *on_label = NULL;
 bitsetv goto_follows = NULL;
 
 /* Linked list of goto numbers.  */
@@ -90,9 +93,8 @@ goto_print (goto_number i, FILE *out)
 {
   const state_number src = from_state[i];
   const state_number dst = to_state[i];
-  symbol_number var = states[dst]->accessing_symbol;
-  fprintf (out,
-           "goto[%ld] = (%d, %s, %d)", i, src, symbols[var]->tag, dst);
+  const char *lbl = symbols[on_label[i]]->tag;
+  fprintf (out, "goto[%ld] = (%d, %s, %d)", i, src, lbl, dst);
 }
 
 void
@@ -104,13 +106,28 @@ set_goto_map (void)
   for (state_number s = 0; s < nstates; ++s)
     {
       transitions *trans = states[s]->transitions;
-      for (int i = trans->num - 1; 0 <= i && TRANSITION_IS_GOTO (trans, i); --i)
+      if (trace_flag & trace_automaton)
         {
-          ngotos++;
-          /* Abort if (ngotos + 1) would overflow.  */
-          aver (ngotos != GOTO_NUMBER_MAXIMUM);
-          goto_map[TRANSITION_SYMBOL (trans, i) - ntokens]++;
+          fprintf (stderr, "Checking transitions:\n");
+          state_transitions_print (states[s], stderr);
         }
+      for (int i = trans->num - 1; 0 <= i; --i)
+        if (transition_is_goto (trans, i))
+          {
+            const symbol_number label = TRANSITION_SYMBOL (trans, i);
+            for (symbol_number anc = 0; anc < nsyms; ++anc)
+              if (bitset_test (descendants[anc], label)
+                  && !ISTOKEN (anc))
+                {
+                  ngotos++;
+                  if (trace_flag & trace_automaton)
+                    fprintf (stderr, "Accepting %d on %s\n",
+                             i, symbols[anc]->tag);
+                  /* Abort if (ngotos + 1) would overflow.  */
+                  aver (ngotos != GOTO_NUMBER_MAXIMUM);
+                  goto_map[anc - ntokens]++;
+                }
+          }
     }
 
   goto_number *temp_map = xnmalloc (nvars + 1, sizeof *temp_map);
@@ -130,16 +147,25 @@ set_goto_map (void)
   }
 
   from_state = xcalloc (ngotos, sizeof *from_state);
+  on_label = xcalloc (ngotos, sizeof *on_label);
   to_state = xcalloc (ngotos, sizeof *to_state);
 
   for (state_number s = 0; s < nstates; ++s)
     {
       const transitions *trans = states[s]->transitions;
-      for (int i = trans->num - 1; 0 <= i && TRANSITION_IS_GOTO (trans, i); --i)
+      for (int i = trans->num - 1; 0 <= i; --i)
+        if (transition_is_goto (trans, i))
         {
-          goto_number k = temp_map[TRANSITION_SYMBOL (trans, i) - ntokens]++;
-          from_state[k] = s;
-          to_state[k] = trans->states[i]->number;
+          const symbol_number label = TRANSITION_SYMBOL (trans, i);
+          for (symbol_number anc = 0; anc < nsyms; ++anc)
+            if (bitset_test (descendants[anc], label)
+                && !ISTOKEN (anc))
+              {
+                goto_number k = temp_map[anc - ntokens]++;
+                from_state[k] = s;
+                on_label[k] = anc;
+                to_state[k] = trans->states[i]->number;
+              }
         }
     }
 
@@ -157,21 +183,44 @@ set_goto_map (void)
 goto_number
 map_goto (state_number src, symbol_number sym)
 {
-  goto_number low = goto_map[sym - ntokens];
-  goto_number high = goto_map[sym - ntokens + 1] - 1;
-
-  for (;;)
+  if (trace_flag & trace_automaton)
+    fprintf (stderr, "Looking for goto(%d, %s)\n", src, symbols[sym]->tag);
+  goto_number res = -1;
+  if (feature_flag & feature_eliminate_chains)
     {
-      aver (low <= high);
-      goto_number middle = (low + high) / 2;
-      state_number s = from_state[middle];
-      if (s == src)
-        return middle;
-      else if (s < src)
-        low = middle + 1;
-      else
-        high = middle - 1;
+      /* Look from a goto from SRC whose label is a descendant of
+         SYM. */
+      for (goto_number i = 0; i < ngotos; ++i)
+        if (from_state[i] == src && on_label[i] == sym)
+          {
+            res = i;
+            break;
+          }
     }
+  else
+    {
+      /* Optimized dichotomic search.  */
+      goto_number low = goto_map[sym - ntokens];
+      goto_number high = goto_map[sym - ntokens + 1] - 1;
+      for (;;)
+        {
+          if (high < low)
+            break;
+          goto_number middle = (low + high) / 2;
+          state_number s = from_state[middle];
+          if (s == src)
+            {
+              res = middle;
+              break;
+            }
+          else if (s < src)
+            low = middle + 1;
+          else
+            high = middle - 1;
+        }
+    }
+  assert (res != -1);
+  return res;
 }
 
 /* Print FOLLOWS for debugging.  */
@@ -204,12 +253,73 @@ initialize_goto_follows (void)
 
   for (goto_number i = 0; i < ngotos; ++i)
     {
+      if (trace_flag & trace_automaton)
+        {
+          fprintf (stderr, "initialize_goto_follows: ");
+          goto_print (i, stderr);
+          fputc ('\n', stderr);
+        }
       state_number dst = to_state[i];
-      const transitions *trans = states[dst]->transitions;
+      const state *s = states[dst];
 
+      {
+        closure (s->items, s->nitems);
+        for (size_t j = 0; j < nitemset; ++j)
+          {
+            item_number *sp1 = ritem + itemset[j];
+            if (trace_flag & trace_automaton)
+              {
+                item_print (sp1, NULL, stderr);
+                fprintf (stderr, "\n");
+              }
+            if (item_number_is_symbol_number (*(sp1-1))
+                && item_number_as_symbol_number (*(sp1-1)) == on_label[i]
+                && item_number_is_symbol_number (*sp1))
+              {
+                /* FIXME: here, we want to be able to iterate over the
+                   firsts of a symbol.  Currently the firsts (in the
+                   conventional sense) is not available in Bison:
+                   firsts in closure.c is something different.  */
+                symbol_number sym = item_number_as_symbol_number (*sp1);
+                if (ISTOKEN (sym))
+                  {
+                    if (trace_flag & trace_automaton)
+                      {
+                        fprintf (stderr, "Add %s as shift1 for ", symbols[sym]->tag);
+                        goto_print (i, stderr);
+                        fprintf (stderr, "\n");
+                      }
+                    bitset_set (goto_follows[i], sym);
+                  }
+                else
+                  {
+                    bitset_iterator iter;
+                    rule_number r;
+                    BITSET_FOR_EACH (iter, FDERIVES (sym), r, 0)
+                      {
+                        if (item_number_is_symbol_number (rules[r].rhs[0])
+                            && ISTOKEN (rules[r].rhs[0]))
+                          {
+                            if (trace_flag & trace_automaton)
+                              {
+                                fprintf (stderr, "Add %s as shift2 for ",
+                                         symbols[rules[r].rhs[0]]->tag);
+                                goto_print (i, stderr);
+                                fprintf (stderr, "\n");
+                              }
+                            bitset_set (goto_follows[i], rules[r].rhs[0]);
+                          }
+                      }
+                  }
+              }
+          }
+      }
+
+      const transitions *trans = s->transitions;
+      /* Shifts outgoing from DST. */
       int j;
       FOR_EACH_SHIFT (trans, j)
-        bitset_set (goto_follows[i], TRANSITION_SYMBOL (trans, j));
+        continue; // bitset_set (goto_follows[i], TRANSITION_SYMBOL (trans, j));
 
       /* Gotos outgoing from DST. */
       goto_number nedges = 0;
@@ -304,11 +414,105 @@ lookback_print (FILE *out)
 static void
 add_lookback_edge (state *s, rule const *r, goto_number gotono)
 {
+  if (trace_flag & trace_automaton)
+    fprintf (stderr, "add_lookback_edge(s = %d, r = %d, g = %ld)\n",
+             s->number, r->number, gotono);
   int ri = state_reduction_find (s, r);
-  int idx = (s->reductions->lookahead_tokens - LA) + ri;
-  lookback[idx] = goto_list_new (gotono, lookback[idx]);
+  if (ri == -1)
+    {
+      if (trace_flag & trace_automaton)
+        fprintf (stderr, "******************* Skipping add_lookback_edge\n");
+      //abort ();
+    }
+  else
+    {
+      int idx = (s->reductions->lookahead_tokens - LA) + ri;
+      lookback[idx] = goto_list_new (gotono, lookback[idx]);
+    }
 }
 
+static void
+build_path (goto_number gotono,
+            rule const *r,
+            state_number *path, int length,
+            goto_number *edge, int *nedges)
+{
+  item_number n = r->rhs[length-1];
+  if (item_number_is_symbol_number (n))
+    {
+      symbol_number sym = item_number_as_symbol_number (n);
+      state *s = states[path[length-1]];
+      transitions *trans = s->transitions;
+      for (int i = 0; i < trans->num; ++i)
+        if (bitset_test(descendants[sym], TRANSITION_SYMBOL (trans, i)))
+          {
+            path[length] = trans->states[i]->number;
+            build_path (gotono, r, path, length+1, edge, nedges);
+          }
+    }
+  else
+    {
+      /* We reached the end of the path.  */
+      if (trace_flag & trace_automaton)
+        {
+          goto_print (gotono, stderr);
+          fputs (": ", stderr);
+          rule_print (r, NULL, stderr);
+          fputs (", path =", stderr);
+          for (int j = 0; j < length; ++j)
+            fprintf (stderr, "%s %d", j ? "," : "", path[j]);
+          fputc ('\n', stderr);
+        }
+
+      /* The end of PATH.  */
+      state *s = states[path[length-1]];
+      if (!s->consistent)
+        add_lookback_edge (s, r, gotono);
+
+      /* Walk back PATH from penultimate to beginning.
+
+         The "0 <= p" part is actually useless: each rhs ends in a
+         rule number (for which ISVAR(...) is false), and there is
+         a sentinel (ritem[-1]=0) before the first rhs.  */
+      for (int p = length - 2; 0 <= p && ISVAR (r->rhs[p]); --p)
+        {
+          symbol_number sym = item_number_as_symbol_number (r->rhs[p]);
+          goto_number g = map_goto (path[p], sym);
+          if (g == GOTO_NUMBER_MAXIMUM)
+            {
+              fprintf (stderr, "*************** SKIPPED\n");
+              abort ();
+            }
+          else
+            {
+              /* Insert G if not already in EDGE.
+                 FIXME: linear search.  A bitset instead?  */
+              {
+                bool found = false;
+                for (int j = 0; !found && j < *nedges; ++j)
+                  found = edge[j] == g;
+                if (!found)
+                  {
+                    if (trace_flag & trace_automaton)
+                      {
+                        fprintf (stderr, "new includes edge: ");
+                        goto_print (g, stderr);
+                        fprintf (stderr, " -> ");
+                        goto_print (gotono, stderr);
+                        fputs (" via ", stderr);
+                        rule_print (r, NULL, stderr);
+                        fprintf (stderr, "\n");
+                      }
+                    assert (*nedges < ngotos);
+                    edge[(*nedges)++] = g;
+                  }
+              }
+            }
+          if (!nullable[sym - ntokens])
+            break;
+        }
+    }
+}
 
 /* Compute INCLUDES and LOOKBACK.  Corresponds to step E in Sec. 6 of
    [DeRemer 1982].  */
@@ -325,55 +529,57 @@ build_relations (void)
      labeled with the RHS of the rule. */
   for (goto_number i = 0; i < ngotos; ++i)
     {
+      if (trace_flag & trace_automaton)
+        {
+          fprintf (stderr, "\n\n============= Looking at ");
+          goto_print (i, stderr);
+          fprintf (stderr, "\n");
+        }
       const state_number src = from_state[i];
-      const state_number dst = to_state[i];
-      symbol_number var = states[dst]->accessing_symbol;
+      const symbol_number var = on_label[i];
 
       /* Size of EDGE.  */
       int nedges = 0;
+      if (trace_flag & trace_automaton)
+        {
+          fprintf (stderr, "\n==== Looking at ");
+          goto_print (i, stderr);
+          fprintf (stderr, " with symbol %s\n", symbols[var]->tag);
+        }
       for (rule **rulep = derives[var - ntokens]; *rulep; ++rulep)
         {
           rule const *r = *rulep;
+          if (trace_flag & trace_automaton)
+            {
+              fprintf (stderr, "---- Looking at rule ");
+              rule_print (r, NULL, stderr);
+              fprintf (stderr, "\n");
+            }
+          if (false
+              && feature_flag & feature_eliminate_chains
+              && rule_useless_chain_p (r))
+            {
+              if (trace_flag & trace_automaton)
+                fprintf (stderr, "************************** rule disabled, skipping\n");
+              continue;
+            }
+
+          if (trace_flag & trace_automaton)
+            {
+              fputs ("build_relations for ", stderr);
+              goto_print (i, stderr);
+              fputs (": ", stderr);
+              rule_print (r, NULL, stderr);
+              fputc ('\n', stderr);
+            }
           state *s = states[src];
-          path[0] = s->number;
+          path[0] = s->number;  /* == SRC. */
 
           /* Length of PATH.  */
           int length = 1;
-          for (item_number const *rp = r->rhs; 0 <= *rp; rp++)
-            {
-              symbol_number sym = item_number_as_symbol_number (*rp);
-              s = transitions_to (s, sym);
-              path[length++] = s->number;
-            }
-
-          /* S is the end of PATH.  */
-          if (!s->consistent)
-            add_lookback_edge (s, r, i);
-
-          /* Walk back PATH from penultimate to beginning.
-
-             The "0 <= p" part is actually useless: each rhs ends in a
-             rule number (for which ISVAR(...) is false), and there is
-             a sentinel (ritem[-1]=0) before the first rhs.  */
-          for (int p = length - 2; 0 <= p && ISVAR (r->rhs[p]); --p)
-            {
-              symbol_number sym = item_number_as_symbol_number (r->rhs[p]);
-              goto_number g = map_goto (path[p], sym);
-              /* Insert G if not already in EDGE.
-                 FIXME: linear search.  A bitset instead?  */
-              {
-                bool found = false;
-                for (int j = 0; !found && j < nedges; ++j)
-                  found = edge[j] == g;
-                if (!found)
-                  {
-                    assert (nedges < ngotos);
-                    edge[nedges++] = g;
-                  }
-              }
-              if (!nullable[sym - ntokens])
-                break;
-            }
+          build_path (i, r,
+                      path, length,
+                      edge, &nedges);
         }
 
       if (trace_flag & trace_automaton)
@@ -465,7 +671,7 @@ state_lookahead_tokens_count (state *s, bool default_reduction_only_for_accept)
      reductions.  */
   s->consistent =
     !(reds->num > 1
-      || (reds->num == 1 && trans->num && TRANSITION_IS_SHIFT (trans, 0))
+      || (reds->num == 1 && trans->num && transition_is_shift (trans, 0))
       || (reds->num == 1 && reds->rules[0]->number != 0
           && default_reduction_only_for_accept));
 

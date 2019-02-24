@@ -25,6 +25,7 @@
 
 #include <hash.h>
 
+#include "chain.h"
 #include "closure.h"
 #include "complain.h"
 #include "getargs.h"
@@ -55,13 +56,49 @@ transitions_new (int num, state **dst)
 state *
 transitions_to (state *s, symbol_number sym)
 {
+  if (trace_flag & trace_automaton)
+    {
+      fprintf (stderr, "Looking for %s in: ", symbols[sym]->tag);
+      state_transitions_print (s, stderr);
+    }
   transitions *trans = s->transitions;
   for (int i = 0; i < trans->num; ++i)
-    if (TRANSITION_SYMBOL (trans, i) == sym)
-      return trans->states[i];
-  abort ();
+    if (bitset_test(descendants[sym], TRANSITION_SYMBOL (trans, i)))
+      {
+        if (trace_flag & trace_automaton)
+          fprintf (stderr, " => found: %d, on %s\n", i, symbols[TRANSITION_SYMBOL (trans, i)]->tag);
+        return trans->states[i];
+      }
+  if (trace_flag & trace_automaton)
+    fprintf (stderr, "Looking for %s => NOT FOUND\n", symbols[sym]->tag);
+  return NULL;
+  //  abort ();
 }
 
+/* Is the TRANS->states[Num] a goto? */
+bool transition_is_goto (const transitions *trans, int num)
+{
+  // A transition on a token that has nterm ancestors is also a goto.
+  bool res = !transition_is_shift (trans, num)
+    || 1 < chain_ancestors_count (TRANSITION_SYMBOL (trans, num));
+  if (trace_flag & trace_automaton)
+    fprintf (stderr, "is_goto(%d, %s) = %d\n", num, symbols[TRANSITION_SYMBOL (trans, num)]->tag, res);
+  return res;
+}
+
+symbol_number goto_symbol (const transitions *trans, int num)
+{
+  symbol_number sym = TRANSITION_SYMBOL (trans, num);
+  if (!transition_is_shift (trans, num))
+    return sym;
+  else
+    {
+      for (symbol_number anc = 0; anc < nsyms; ++anc)
+        if (bitset_test (descendants[anc], sym) && anc != sym)
+          return anc;
+    }
+  abort();
+}
 
                         /*--------------------.
                         | Error transitions.  |
@@ -237,7 +274,8 @@ state_reduction_find (state *s, rule const *r)
   for (int i = 0; i < reds->num; ++i)
     if (reds->rules[i] == r)
       return i;
-  abort ();
+  // FIXME: we should rather abort when the reduction does not exist.
+  return -1;
 }
 
 

@@ -137,7 +137,7 @@ print_actions (state const *s, FILE *fgraph)
         /* Shifts are solid, gotos are dashed, and error is dotted.  */
         char const *style =
           (TRANSITION_IS_ERROR (trans, i) ? "dotted"
-           : TRANSITION_IS_SHIFT (trans, i) ? "solid"
+           : transition_is_shift (trans, i) ? "solid"
            : "dashed");
 
         if (TRANSITION_IS_ERROR (trans, i)

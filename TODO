@@ -82,8 +82,11 @@ See above.
 
 ** clean up
 *** lalr.c
-Introduce a goto struct, and use it in place of from_state/to_state.
+Introduce a goto struct, and use it in place of from_state/to_state.  Also,
+clean up the memory clean up: it's done in ielr.c. and in table.c.
+
 Rename states1 as path, length as pathlen.
+
 Introduce inline functions for things such as nullable[*rp - ntokens]
 where we need to map from symbol number to nterm number.
 
@@ -105,6 +108,11 @@ tests easy to maintain.
 Rename these guys as "diagnostics.*" (or "diagnose.*"), since that's the
 name they have in gcc, clang, etc.  Likewise for the complain_* series of
 functions.
+
+*** generated tables
+Be sure to eliminate remains of the now useless non terminals.  Also, we
+still emit "intermediate" gotos needed in lalrc.c.  table.c should no longer
+emit them.
 
 * Modernization
 Fix data/skeletons/yacc.c so that it defines YYPTRDIFF_T properly for modern

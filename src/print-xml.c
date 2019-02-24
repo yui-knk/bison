@@ -138,7 +138,7 @@ print_transitions (state *s, FILE *out, int level)
 
   for (i = 0; i < trans->num; i++)
     if (!TRANSITION_IS_DISABLED (trans, i)
-        && TRANSITION_IS_SHIFT (trans, i))
+        && transition_is_shift (trans, i))
       {
         symbol *sym = symbols[TRANSITION_SYMBOL (trans, i)];
         char const *tag = sym->tag;
@@ -151,7 +151,7 @@ print_transitions (state *s, FILE *out, int level)
 
   for (i = 0; i < trans->num; i++)
     if (!TRANSITION_IS_DISABLED (trans, i)
-        && !TRANSITION_IS_SHIFT (trans, i))
+        && !transition_is_shift (trans, i))
       {
         symbol *sym = symbols[TRANSITION_SYMBOL (trans, i)];
         char const *tag = sym->tag;

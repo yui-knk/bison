@@ -22,6 +22,10 @@ m4_pushdef([b4_copyright_years],
 
 m4_include(b4_skeletonsdir/[c.m4])
 
+# eliminate_chains
+# ----------------
+b4_define_flag_if([eliminate_chains])
+
 ## ---------- ##
 ## api.pure.  ##
 ## ---------- ##
@@ -1718,11 +1722,20 @@ yyreduce:
      that goes to, based on the state we popped back to and the rule
      number reduced by.  */
   {
-    const int yylhs = yyr1[yyn] - YYNTOKENS;
-    const int yyi = yypgoto[yylhs] + *yyssp;
-    yystate = (0 <= yyi && yyi <= YYLAST && yycheck[yyi] == *yyssp
-               ? yytable[yyi]
-               : yydefgoto[yylhs]);
+    const int yylhs = yyr1[yyn];]b4_eliminate_chains_if([[
+    if (yylhs < YYNTOKENS)
+      {
+        const int yyi = yypact[*yyssp] + yylhs;
+        YY_ASSERT (0 <= yyi && yyi <= YYLAST && yycheck[yyi] == yylhs);
+        yystate = yytable[yyi];
+      }
+    else
+      {]])[
+        const int yyi = yypgoto[yylhs - YYNTOKENS] + *yyssp;
+        yystate = (0 <= yyi && yyi <= YYLAST && yycheck[yyi] == *yyssp
+                   ? yytable[yyi]
+                   : yydefgoto[yylhs - YYNTOKENS]);]b4_eliminate_chains_if([[
+      }]])[
   }
 
   goto yynewstate;

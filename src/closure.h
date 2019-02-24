@@ -21,11 +21,13 @@
 #ifndef CLOSURE_H_
 # define CLOSURE_H_
 
+#include <bitsetv.h>
+
 # include "gram.h"
 
 /* Allocates the itemset and ruleset vectors, and precomputes useful
-   data so that closure can be called.  n is the number of elements to
-   allocate for itemset.  */
+   data so that closure() can be called.  N is the number of elements
+   to allocate for itemset.  */
 
 void closure_new (int n);
 
@@ -50,5 +52,9 @@ void closure_free (void);
 
 extern item_number *itemset;
 extern size_t nitemset;
+
+extern bitsetv fderives;
+#define FDERIVES(Var)   fderives[(Var) - ntokens]
+
 
 #endif /* !CLOSURE_H_ */

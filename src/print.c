@@ -107,7 +107,7 @@ print_transitions (state *s, FILE *out, bool display_transitions_p)
   /* Compute the width of the lookahead token column.  */
   for (int i = 0; i < trans->num; i++)
     if (!TRANSITION_IS_DISABLED (trans, i)
-        && TRANSITION_IS_SHIFT (trans, i) == display_transitions_p)
+        && transition_is_shift (trans, i) == display_transitions_p)
       {
         symbol *sym = symbols[TRANSITION_SYMBOL (trans, i)];
         max_length (&width, sym->tag);
@@ -123,7 +123,7 @@ print_transitions (state *s, FILE *out, bool display_transitions_p)
   /* Report lookahead tokens and shifts.  */
   for (int i = 0; i < trans->num; i++)
     if (!TRANSITION_IS_DISABLED (trans, i)
-        && TRANSITION_IS_SHIFT (trans, i) == display_transitions_p)
+        && transition_is_shift (trans, i) == display_transitions_p)
       {
         symbol *sym = symbols[TRANSITION_SYMBOL (trans, i)];
         const char *tag = sym->tag;

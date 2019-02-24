@@ -90,10 +90,13 @@ extern goto_number *goto_map;
 /** The size of #from_state and #to_state.  */
 extern goto_number ngotos;
 
-/** State number which a transition leads from.  */
+/** FROM_STATE[GOTONO] -- State number a goto leads from.  */
 extern state_number *from_state;
 
-/** State number it leads to.  */
+/** ON_LABEL[GOTONO] -- Label of a goto.  */
+extern symbol_number *on_label;
+
+/** TO_STATE[GOTONO] -- State number a goto leads to.  */
 extern state_number *to_state;
 
 /** The number of the goto from state SRC labeled with nterm SYM.  */

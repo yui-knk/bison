@@ -22,7 +22,6 @@
 #include "system.h"
 
 #include <bitset.h>
-#include <bitsetv.h>
 
 #include "closure.h"
 #include "derives.h"
@@ -41,11 +40,10 @@ size_t nitemset;
 static bitset ruleset;
 
 /* internal data.  See comments before set_fderives and set_firsts.  */
-static bitsetv fderives = NULL;
+bitsetv fderives = NULL;
 static bitsetv firsts = NULL;
 
 /* Retrieve the FDERIVES/FIRSTS sets of the nonterminals numbered Var.  */
-#define FDERIVES(Var)   fderives[(Var) - ntokens]
 #define FIRSTS(Var)   firsts[(Var) - ntokens]
 
 

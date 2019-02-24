@@ -1169,6 +1169,7 @@ ielr (void)
   timevar_push (tv_ielr_phase4);
   free (goto_map);
   free (from_state);
+  free (on_label);
   free (to_state);
   if (lr_type == LR_TYPE__CANONICAL_LR)
     {

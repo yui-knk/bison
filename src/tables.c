@@ -795,6 +795,7 @@ tables_generate (void)
   goto_actions ();
   free (goto_map);
   free (from_state);
+  free (on_label);
   free (to_state);
 
   order = xcalloc (nvectors, sizeof *order);
