@@ -47,7 +47,7 @@ line:
 ;
 
 exp:
-  NUM                { $$ = $1;                                             }
+  NUM
 | exp '=' exp
   {
     if ($1.intValue () != $3.intValue ())

@@ -418,7 +418,7 @@ AT_DATA_GRAMMAR([input.y],
 %debug
 %token WAIT_FOR_EOF
 %%
-exp: WAIT_FOR_EOF exp | ;
+exp: %empty | WAIT_FOR_EOF exp;
 %%
 ]AT_YYERROR_DEFINE[
 #include <assert.h>
