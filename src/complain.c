@@ -137,6 +137,7 @@ static const argmatch_warning_arg argmatch_warning_args[] =
   { "deprecated",     Wdeprecated },
   { "empty-rule",     Wempty_rule },
   { "precedence",     Wprecedence },
+  { "useless-action", Wuseless_action },
   { "other",          Wother },
   { "all",            Wall },
   { "everything",     Weverything },
