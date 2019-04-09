@@ -31,6 +31,7 @@
 #include <relocatable.h> /* relocate2 */
 #include <timevar.h>
 
+#include "chain.h"
 #include "complain.h"
 #include "conflicts.h"
 #include "derives.h"
@@ -118,6 +119,9 @@ main (int argc, char *argv[])
   derives_compute ();
   nullable_compute ();
   timevar_pop (tv_sets);
+
+  /* Find ancestors.  */
+  chain_compute_ancestors ();
 
   /* Compute LR(0) parser states.  See state.h for more info.  */
   timevar_push (tv_lr0);

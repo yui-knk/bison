@@ -32,6 +32,7 @@
 #include <quote.h>
 #include <textstyle.h>
 
+#include "chain.h"
 #include "complain.h"
 #include "files.h"
 #include "muscle-tab.h"
@@ -304,6 +305,7 @@ ARGMATCH_DEFINE_GROUP(feature, enum feature)
 static const argmatch_feature_doc argmatch_feature_docs[] =
 {
   { "caret",       N_("show errors with carets") },
+  { "chain",       N_("eliminate useless chain rules") },
   { "fixit",       N_("show machine-readable fixes") },
   { "syntax-only", N_("do not generate any file") },
   { "all",         N_("all of the above") },
@@ -315,6 +317,8 @@ static const argmatch_feature_arg argmatch_feature_args[] =
 {
   { "none",                          feature_none },
   { "caret",                         feature_caret },
+  { "chain",                         feature_eliminate_chains },
+  { "eliminate-chain-reductions",    feature_eliminate_chains },
   { "diagnostics-show-caret",        feature_caret },
   { "fixit",                         feature_fixit },
   { "diagnostics-parseable-fixits",  feature_fixit },

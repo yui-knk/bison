@@ -118,8 +118,9 @@ enum feature
   {
     feature_none             = 0,      /**< No additional feature.  */
     feature_caret            = 1 << 0, /**< Output errors with carets.  */
-    feature_fixit            = 1 << 1, /**< Issue instructions to fix the sources.  */
-    feature_syntax_only      = 1 << 2, /**< Don't generate output.  */
+    feature_eliminate_chains = 1 << 1, /**< Eliminate useless chain rules.  */
+    feature_fixit            = 1 << 2, /**< Issue instructions to fix the sources.  */
+    feature_syntax_only      = 1 << 3, /**< Don't generate output.  */
     feature_all              = ~0      /**< All above features.  */
   };
 /** What additional features to use.  */

@@ -34,6 +34,8 @@ src_bison_SOURCES =                             \
   src/Sbitset.h                                 \
   src/assoc.c                                   \
   src/assoc.h                                   \
+  src/chain.c                                   \
+  src/chain.h                                   \
   src/closure.c                                 \
   src/closure.h                                 \
   src/complain.c                                \
