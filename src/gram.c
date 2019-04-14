@@ -313,10 +313,13 @@ void
 grammar_rules_useless_report (const char *message)
 {
   for (rule_number r = 0; r < nrules; ++r)
-    /* Don't complain about rules whose LHS is useless, we already
-       complained about it.  */
-    if (!reduce_nonterminal_useless_in_grammar (rules[r].lhs)
-        && !rules[r].useful)
+    if (!rules[r].useful
+        /* Don't complain about rules whose LHS is useless, we already
+           did.  */
+        && !reduce_nonterminal_useless_in_grammar (rules[r].lhs)
+        /* Don't complain about eliminated chain rules.  */
+        && !(feature_flag & feature_eliminate_chains
+             && rule_useless_chain_p (&rules[r])))
       complain (&rules[r].location, Wother, "%s", message);
 }
 
