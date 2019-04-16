@@ -46,6 +46,7 @@ TESTSUITE_AT =                                \
   %D%/actions.at                              \
   %D%/c++.at                                  \
   %D%/calc.at                                 \
+  %D%/chain.at                                \
   %D%/conflicts.at                            \
   %D%/cxx-type.at                             \
   %D%/diagnostics.at                          \
