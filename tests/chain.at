@@ -91,15 +91,15 @@ m4_pushdef([AT_CHAIN_CHECK],
 [AT_DATA([[in.txt]],
 [[$1
 ]])
-AT_PARSER_CHECK([with-chains -s <in.txt], [0], [$2
-], [stderr])
+AT_PARSER_CHECK([with-chains -s <in.txt], [0], [m4_ifval([$2], [$2
+])], [stderr])
 # AT_CHECK([sed -n '/num_reductions: /{s///;p;q;}' stderr], [], [$3
 # ])
 AT_CHECK([grep -c '^Reducing' stderr], [], [m4_if([$3], [ignore], [$3], [$3
 ])])
 
-AT_PARSER_CHECK([without-chains -s <in.txt], [0], [$2
-], [stderr])
+AT_PARSER_CHECK([without-chains -s <in.txt], [0], [m4_ifval([$2], [$2
+])], [stderr])
 #AT_CHECK([sed -n '/num_reductions: /{s///;p;q;}' stderr], [], [$4
 #])
 AT_CHECK([grep -c '^Reducing' stderr], [], [m4_if([$3], [ignore], [$4], [$4
@@ -302,6 +302,73 @@ AT_CHAIN_CHECK([*2+],  [30],  [9], [5])
 AT_CHAIN_CHECK([*+],  [110],  [9], [6])
 
 AT_CLEANUP
+
+
+
+## ---------------- ##
+## Bison Rule Rhs.  ##
+## ---------------- ##
+
+AT_SETUP([Bison Rule Rhs])
+
+# At some point during the development of -fchain Bison compiled with
+# -fchain was unable to parse its own grammar.  This test is a
+# reduction of the problem.  This failure revealed that we need to be
+# ready to look for *all* the paths in build_relations.  It prompted
+# the creation of build_path in lalr.c.
+
+AT_CHAIN_PARSERS(['i' 's'],
+[[rhs:
+  symbol named_ref.opt
+;
+
+named_ref.opt:
+  %empty
+| 'b'    /* BRACKETED_ID */
+;
+
+symbol:
+  'i'    /* ID */
+| 's'    /* STRING */
+;
+
+]])
+
+AT_SETS_CHECK([with-chains.traces], [DESCENDANTS, LEAVES],
+[[DESCENDANTS
+  $accept: $accept
+  rhs: rhs
+  named_ref.opt: named_ref.opt
+  symbol: symbol
+LEAVES
+  $accept: $accept
+  rhs: rhs
+  named_ref.opt: named_ref.opt
+  symbol: symbol
+]])
+
+AT_SETS_CHECK([without-chains.traces], [DESCENDANTS, LEAVES],
+[[DESCENDANTS
+  $accept: $accept
+  rhs: rhs
+  named_ref.opt: 'b' named_ref.opt
+  symbol: 'i' 's' symbol
+LEAVES
+  $accept: $accept
+  rhs: rhs
+  named_ref.opt: 'b'
+  symbol: 'i'
+]])
+
+
+AT_CHAIN_CHECK([i],  [], [ignore], [ignore])
+AT_CHAIN_CHECK([ib], [], [ignore], [ignore])
+AT_CHAIN_CHECK([sb], [], [ignore], [ignore])
+AT_CHAIN_CHECK([s],  [], [ignore], [ignore])
+
+AT_CLEANUP
+
+
 
 ## ---------- ##
 ## Epilogue.  ##
