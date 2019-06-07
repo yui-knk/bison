@@ -17,6 +17,10 @@
 
 m4_include(b4_skeletonsdir/[c++.m4])
 
+# eliminate_chains
+# ----------------
+b4_define_flag_if([eliminate_chains])
+
 # api.value.type=variant is valid.
 m4_define([b4_value_type_setup_variant])
 
@@ -773,13 +777,22 @@ m4_if(b4_prefix, [yy], [],
 #endif // ]b4_api_PREFIX[DEBUG
 
   ]b4_parser_class[::state_type
-  ]b4_parser_class[::yy_lr_goto_state_ (state_type yystate, int yysym)
-  {
-    int yyr = yypgoto_[yysym - yyntokens_] + yystate;
+  ]b4_parser_class[::yy_lr_goto_state_ (state_type yystate, int yylhs)
+  {]b4_eliminate_chains_if([[
+    if (yylhs < yyntokens_)
+      {
+        const int yyi = yypact_[yystate] + yylhs;]b4_parse_assert_if([[
+        assert (0 <= yyi && yyi <= yylast_ && yycheck_[yyi] == yylhs);]])[
+        return yytable_[yyi];
+      }
+    else
+      {]])[
+    int yyr = yypgoto_[yylhs - yyntokens_] + yystate;
     if (0 <= yyr && yyr <= yylast_ && yycheck_[yyr] == yystate)
       return yytable_[yyr];
     else
-      return yydefgoto_[yysym - yyntokens_];
+      return yydefgoto_[yylhs - yyntokens_];]b4_eliminate_chains_if([[
+     }]])[
   }
 
   bool

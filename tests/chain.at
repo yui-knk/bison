@@ -18,15 +18,15 @@
 AT_BANNER([[Useless Chains Elimination.]])
 
 
-# AT_CHAIN_PARSERS([NTERMS], [RULES])
-# -----------------------------------
+# AT_CHAIN_PARSERS(NTERMS, [DIRECTIVES], RULES)
+# ---------------------------------------------
 m4_pushdef([AT_CHAIN_PARSERS],
 [AT_KEYWORDS([chain])
 
-AT_BISON_OPTION_PUSHDEFS
+AT_BISON_OPTION_PUSHDEFS([%define parse.trace $2])
 
-AT_DATA([[input.y]],
-[[%{
+AT_DATA_GRAMMAR([[input.y]],
+[[%code {
   #include <ctype.h>  /* isdigit. */
   #include <stdio.h>
   #include <stdlib.h> /* abort. */
@@ -34,36 +34,40 @@ AT_DATA([[input.y]],
 
   ]AT_YYLEX_DECLARE[
   ]AT_YYERROR_DECLARE[
-%}
+}
 
 %define parse.assert
 %define parse.error verbose
 %define parse.trace
+]$2[
+]AT_CXX_IF([[
+%define global_tokens_and_yystype
+]])[
 
 %union {
   int val;
 }
 %token <val> NUM
 %type  <val> ]$1[
-%printer { fprintf (yyo, "%d", $$); } <val>
+%printer { ]AT_CXX_IF([[yyo << $$]],
+                      [[fprintf (yyo, "%d", $$)]])[; } <val>
 
 %%
-]$2[
+]$3[
 %%
 
 ]AT_YYLEX_PROTOTYPE[
 {
-  int c;
-
-  while (isspace (c = getchar ()))
-    continue;
+  int c = getchar ();
+  while (isspace (c))
+    c = getchar ();
 
   if (isdigit (c))
     {
       ungetc (c, stdin);
-      if (scanf ("%d", &yylval.val) != 1)
+      if (scanf ("%d", &]AT_VAL[.val) != 1)
         abort ();
-      return NUM;
+      return ]AT_TOKEN_PREFIX[NUM;
     }
   else
     return c;
@@ -108,13 +112,15 @@ AT_CHECK([grep -c '^Reducing' stderr], [], [m4_if([$3], [ignore], [$4], [$4
 ])
 
 
+m4_foreach([b4_skel], [[yacc.c], [lalr1.cc]],
+[
 ## --------- ##
 ## Lalonde.  ##
 ## --------- ##
 
-AT_SETUP([Lalonde])
+AT_SETUP([Lalonde: b4_skel])
 
-AT_CHAIN_PARSERS([expr term],
+AT_CHAIN_PARSERS([expr term], [%skeleton "]b4_skel["],
 [[
 res:  expr { printf ("%d\n", $1); };
 expr: expr '+' term { $$ = $1 + $3; } | term;
@@ -154,15 +160,17 @@ AT_CHAIN_CHECK([1+2*3*4+5], [30], [9], [5])
 AT_CHAIN_CHECK([1*2+3+4*5], [25], [9], [5])
 
 AT_CLEANUP
-
+])
 
 ## ------------------ ##
 ## Full Arithmetics.  ##
 ## ------------------ ##
 
-AT_SETUP([Full Arithmetics])
+m4_foreach([b4_skel], [[yacc.c], [lalr1.cc]],
+[
+AT_SETUP([Full Arithmetics: b4_skel])
 
-AT_CHAIN_PARSERS([expr term fact],
+AT_CHAIN_PARSERS([expr term fact], [%skeleton "]b4_skel["],
 [[
 res:  expr           { printf ("%d\n", $1); };
 expr: expr '+' term  { $$ = $1 + $3; }
@@ -222,15 +230,18 @@ AT_CHAIN_CHECK([(+1+--2)*3],     [9], [15], [7])
 AT_CHAIN_CHECK([(+1+--2)*+3],    [9], [16], [8])
 
 AT_CLEANUP
+])
 
 
 ## ---------------------- ##
 ## Nullable Arithmetics.  ##
 ## ---------------------- ##
 
-AT_SETUP([Nullable Arithmetics])
+m4_foreach([b4_skel], [[yacc.c], [lalr1.cc]],
+[
+AT_SETUP([Nullable Arithmetics: b4_skel])
 
-AT_CHAIN_PARSERS([expr term fact],
+AT_CHAIN_PARSERS([expr term fact], [%skeleton "]b4_skel["],
 [[
 res:  expr           { printf ("%d\n", $1); };
 expr: expr '+' term  { $$ = $1 + $3; }
@@ -302,6 +313,7 @@ AT_CHAIN_CHECK([*2+],  [30],  [9], [5])
 AT_CHAIN_CHECK([*+],  [110],  [9], [6])
 
 AT_CLEANUP
+])
 
 
 
@@ -309,7 +321,9 @@ AT_CLEANUP
 ## Bison Rule Rhs.  ##
 ## ---------------- ##
 
-AT_SETUP([Bison Rule Rhs])
+m4_foreach([b4_skel], [[yacc.c], [lalr1.cc]],
+[
+AT_SETUP([Bison Rule Rhs: b4_skel])
 
 # At some point during the development of -fchain Bison compiled with
 # -fchain was unable to parse its own grammar.  This test is a
@@ -317,7 +331,7 @@ AT_SETUP([Bison Rule Rhs])
 # ready to look for *all* the paths in build_relations.  It prompted
 # the creation of build_path in lalr.c.
 
-AT_CHAIN_PARSERS(['i' 's'],
+AT_CHAIN_PARSERS(['i' 's'], [%skeleton "]b4_skel["],
 [[rhs:
   symbol named_ref.opt
 ;
@@ -367,7 +381,7 @@ AT_CHAIN_CHECK([sb], [], [ignore], [ignore])
 AT_CHAIN_CHECK([s],  [], [ignore], [ignore])
 
 AT_CLEANUP
-
+])
 
 
 ## ---------- ##

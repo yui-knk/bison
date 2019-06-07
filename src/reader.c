@@ -298,7 +298,8 @@ grammar_rule_check_and_complete (symbol_list *r)
             complain (&r->rhs_loc, Wother,
                       _("type clash on default action: <%s> != <%s>"),
                       lhs_type, rhs_type);
-          else
+          else if (!(feature_flag & feature_eliminate_chains)
+                   || symbol_list_length (r) != 2)
             {
               /* Install the default action only for C++.  */
               const bool is_cxx =
