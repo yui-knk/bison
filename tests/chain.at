@@ -85,46 +85,53 @@ AT_CHECK([cp input.y without-chains.y])
 AT_FULL_COMPILE([[without-chains]], [], [], [],
                 [-fchain --trace=sets 2>without-chains.traces])
 
-AT_BISON_OPTION_POPDEFS
 ])
 
 
-# AT_CHAIN_CHECK(INPUT, EXPOUT, NUM-REDS-WITH-CHAINS, NUM-REDS-WITHOUT-CHAINS)
-# ----------------------------------------------------------------------------
+# AT_CHAIN_CHECK(INPUT, EXPOUT, EXPERR,
+#                NUM-REDS-WITH-CHAINS, NUM-REDS-WITHOUT-CHAINS)
+# -------------------------------------------------------------
 m4_pushdef([AT_CHAIN_CHECK],
 [AT_DATA([[in.txt]],
 [[$1
 ]])
-AT_PARSER_CHECK([with-chains -s <in.txt], [0], [m4_ifval([$2], [$2
-])], [stderr])
-# AT_CHECK([sed -n '/num_reductions: /{s///;p;q;}' stderr], [], [$3
+AT_PARSER_CHECK([with-chains <in.txt], [m4_ifval([$3], [1], [0])], [m4_ifval([$2], [$2
+])], [m4_ifval([$3], [$3
+])])
+AT_PARSER_CHECK([with-chains -s <in.txt], [ignore], [ignore], [stderr])
+# AT_CHECK([sed -n '/num_reductions: /{s///;p;q;}' stderr], [], [$4
 # ])
-AT_CHECK([grep -c '^Reducing' stderr], [], [m4_if([$3], [ignore], [$3], [$3
+AT_CHECK([grep -c '^Reducing' stderr], [ignore], [m4_if([$4], [ignore], [$4], [$4
 ])])
 
-AT_PARSER_CHECK([without-chains -s <in.txt], [0], [m4_ifval([$2], [$2
-])], [stderr])
-#AT_CHECK([sed -n '/num_reductions: /{s///;p;q;}' stderr], [], [$4
+AT_PARSER_CHECK([without-chains <in.txt], [m4_ifval([$3], [1], [0])], [m4_ifval([$2], [$2
+])], [m4_ifval([$3], [$3
+])])
+AT_PARSER_CHECK([without-chains -s <in.txt], [ignore], [ignore], [stderr])
+#AT_CHECK([sed -n '/num_reductions: /{s///;p;q;}' stderr], [], [
 #])
-AT_CHECK([grep -c '^Reducing' stderr], [], [m4_if([$3], [ignore], [$4], [$4
+AT_CHECK([grep -c '^Reducing' stderr], [ignore], [m4_if([$5], [ignore], [$5], [$5
 ])])
 ])
 ])
 
 
-m4_foreach([b4_skel], [[yacc.c], [lalr1.cc]],
-[
+
 ## --------- ##
 ## Lalonde.  ##
 ## --------- ##
 
-AT_SETUP([Lalonde: b4_skel])
+# AT_TEST(SKELETON, [DIRECTIVES])
+# -------------------------------
+m4_pushdef([AT_TEST],
+[
+AT_SETUP([Lalonde: $1 $2])
 
-AT_CHAIN_PARSERS([expr term], [%skeleton "]b4_skel["],
+AT_CHAIN_PARSERS([expr term], [%skeleton "$1" $2],
 [[
-res:  expr { printf ("%d\n", $1); };
-expr: expr '+' term { $$ = $1 + $3; } | term;
-term: term '*' NUM  { $$ = $1 * $3; } | NUM;
+res:  expr { printf ("%d\n", $][1); };
+expr: expr '+' term { $$ = $][1 + $][3; } | term;
+term: term '*' NUM  { $$ = $][1 * $][3; } | NUM;
 ]])
 
 AT_SETS_CHECK([with-chains.traces], [DESCENDANTS, LEAVES],
@@ -153,35 +160,52 @@ LEAVES
   term: NUM
 ]])
 
-AT_CHAIN_CHECK([1],          [1], [3], [1])
-AT_CHAIN_CHECK([1+2],        [3], [5], [2])
-AT_CHAIN_CHECK([1+2*3],      [7], [6], [3])
-AT_CHAIN_CHECK([1+2*3*4+5], [30], [9], [5])
-AT_CHAIN_CHECK([1*2+3+4*5], [25], [9], [5])
+AT_CHAIN_CHECK([1],          [1], [], [3], [1])
+AT_CHAIN_CHECK([1+2],        [3], [], [5], [2])
+AT_CHAIN_CHECK([1+2*3],      [7], [], [6], [3])
+AT_CHAIN_CHECK([1+2*3*4+5], [30], [], [9], [5])
+AT_CHAIN_CHECK([1*2+3+4*5], [25], [], [9], [5])
 
+AT_LAC_IF(
+[AT_CHAIN_CHECK([42 51], [],   [syntax error, unexpected NUM, expecting $end or '+' or '*'], [1], [0])
+ AT_CHAIN_CHECK([16++],  [],   [syntax error, unexpected '+', expecting NUM],                [2], [0])],
+[AT_CHAIN_CHECK([42 51], [42], [syntax error, unexpected NUM, expecting $end],               [3], [1])
+ AT_CHAIN_CHECK([16++],  [],   [syntax error, unexpected '+', expecting NUM],                [2], [0])])
+
+AT_BISON_OPTION_POPDEFS
 AT_CLEANUP
 ])
+
+AT_TEST([yacc.c])
+AT_TEST([yacc.c], [%define parse.lac full])
+AT_TEST([lalr1.cc])
+
+m4_popdef([AT_TEST])
+
+
 
 ## ------------------ ##
 ## Full Arithmetics.  ##
 ## ------------------ ##
 
-m4_foreach([b4_skel], [[yacc.c], [lalr1.cc]],
+# AT_TEST(SKELETON, [DIRECTIVES])
+# -------------------------------
+m4_pushdef([AT_TEST],
 [
-AT_SETUP([Full Arithmetics: b4_skel])
+AT_SETUP([Full Arithmetics: $1 $2])
 
-AT_CHAIN_PARSERS([expr term fact], [%skeleton "]b4_skel["],
+AT_CHAIN_PARSERS([expr term fact], [%skeleton "$1" $2],
 [[
-res:  expr           { printf ("%d\n", $1); };
-expr: expr '+' term  { $$ = $1 + $3; }
-    | expr '-' term  { $$ = $1 - $3; }
+res:  expr           { printf ("%d\n", $][1); };
+expr: expr '+' term  { $$ = $][1 + $][3; }
+    | expr '-' term  { $$ = $][1 - $][3; }
     | term;
-term: term '*' fact  { $$ = $1 * $3; }
-    | term '/' fact  { $$ = $1 / $3; }
+term: term '*' fact  { $$ = $][1 * $][3; }
+    | term '/' fact  { $$ = $][1 / $][3; }
     | fact;
-fact: '(' expr ')'   { $$ = $2; }
-    | '-' fact       { $$ = -$2; }
-    | '+' fact       { $$ = $2; }
+fact: '(' expr ')'   { $$ = $][2; }
+    | '-' fact       { $$ = -$][2; }
+    | '+' fact       { $$ = $][2; }
     | NUM;
 ]])
 
@@ -216,37 +240,52 @@ LEAVES
 ]])
 
 
-AT_CHAIN_CHECK([1],              [1],  [4], [1])
-AT_CHAIN_CHECK([1+2],            [3],  [7], [2])
-AT_CHAIN_CHECK([1+2+3],          [6], [10], [3])
-AT_CHAIN_CHECK([(1)],            [1],  [7], [2])
-AT_CHAIN_CHECK([(1+2)],          [3], [10], [3])
-AT_CHAIN_CHECK([(1)+((2)+(3))],  [6], [22], [7])
-AT_CHAIN_CHECK([1-2-3],         [-4], [10], [3])
-AT_CHAIN_CHECK([1-(2-3)],        [2], [13], [4])
-AT_CHAIN_CHECK([1+2*3],          [7],  [9], [3])
-AT_CHAIN_CHECK([(1+2)*3],        [9], [12], [4])
-AT_CHAIN_CHECK([(+1+--2)*3],     [9], [15], [7])
-AT_CHAIN_CHECK([(+1+--2)*+3],    [9], [16], [8])
+AT_CHAIN_CHECK([1],              [1], [],  [4], [1])
+AT_CHAIN_CHECK([1+2],            [3], [],  [7], [2])
+AT_CHAIN_CHECK([1+2+3],          [6], [], [10], [3])
+AT_CHAIN_CHECK([(1)],            [1], [],  [7], [2])
+AT_CHAIN_CHECK([(1+2)],          [3], [], [10], [3])
+AT_CHAIN_CHECK([(1)+((2)+(3))],  [6], [], [22], [7])
+AT_CHAIN_CHECK([1-2-3],         [-4], [], [10], [3])
+AT_CHAIN_CHECK([1-(2-3)],        [2], [], [13], [4])
+AT_CHAIN_CHECK([1+2*3],          [7], [],  [9], [3])
+AT_CHAIN_CHECK([(1+2)*3],        [9], [], [12], [4])
+AT_CHAIN_CHECK([(+1+--2)*3],     [9], [], [15], [7])
+AT_CHAIN_CHECK([(+1+--2)*+3],    [9], [], [16], [8])
 
+AT_LAC_IF(
+[AT_CHAIN_CHECK([42 51], [],   [syntax error, unexpected NUM],                                       [2], [0])
+ AT_CHAIN_CHECK([16**],  [],   [[syntax error, unexpected '*', expecting NUM or '+' or '-' or '(']], [2], [0])],
+[AT_CHAIN_CHECK([42 51], [42], [syntax error, unexpected NUM, expecting $end],                       [4], [1])
+ AT_CHAIN_CHECK([16**],  [],   [[syntax error, unexpected '*', expecting NUM or '+' or '-' or '(']], [2], [0])])
+
+AT_BISON_OPTION_POPDEFS
 AT_CLEANUP
 ])
+
+AT_TEST([yacc.c])
+AT_TEST([yacc.c], [%define parse.lac full])
+AT_TEST([lalr1.cc])
+
+m4_popdef([AT_TEST])
 
 
 ## ---------------------- ##
 ## Nullable Arithmetics.  ##
 ## ---------------------- ##
 
-m4_foreach([b4_skel], [[yacc.c], [lalr1.cc]],
+# AT_TEST(SKELETON, [DIRECTIVES])
+# -------------------------------
+m4_pushdef([AT_TEST],
 [
-AT_SETUP([Nullable Arithmetics: b4_skel])
+AT_SETUP([Nullable Arithmetics: $1 $2])
 
-AT_CHAIN_PARSERS([expr term fact], [%skeleton "]b4_skel["],
+AT_CHAIN_PARSERS([expr term fact], [%skeleton "$1" $2],
 [[
-res:  expr           { printf ("%d\n", $1); };
-expr: expr '+' term  { $$ = $1 + $3; }
+res:  expr           { printf ("%d\n", $][1); };
+expr: expr '+' term  { $$ = $][1 + $][3; }
     | term;
-term: term '*' fact  { $$ = $1 * $3; }
+term: term '*' fact  { $$ = $][1 * $][3; }
     | fact;
 fact: NUM
     | %empty         { $$ = 10; };
@@ -283,37 +322,48 @@ LEAVES
 ]])
 
 
-AT_CHAIN_CHECK([1+2+3], [6], [10], [3])
-AT_CHAIN_CHECK([+2+3], [15], [10], [4])
-AT_CHAIN_CHECK([1++3], [14], [10], [4])
-AT_CHAIN_CHECK([1+2+], [13], [10], [4])
-AT_CHAIN_CHECK([++3],  [23], [10], [5])
-AT_CHAIN_CHECK([+2+],  [22], [10], [5])
-AT_CHAIN_CHECK([1++],  [21], [10], [5])
-AT_CHAIN_CHECK([++],   [30], [10], [6])
-AT_CHAIN_CHECK([+],    [20],  [7], [4])
-AT_CHAIN_CHECK([],     [10],  [4], [2])
+AT_CHAIN_CHECK([1+2+3], [6], [], [10], [3])
+AT_CHAIN_CHECK([+2+3], [15], [], [10], [4])
+AT_CHAIN_CHECK([1++3], [14], [], [10], [4])
+AT_CHAIN_CHECK([1+2+], [13], [], [10], [4])
+AT_CHAIN_CHECK([++3],  [23], [], [10], [5])
+AT_CHAIN_CHECK([+2+],  [22], [], [10], [5])
+AT_CHAIN_CHECK([1++],  [21], [], [10], [5])
+AT_CHAIN_CHECK([++],   [30], [], [10], [6])
+AT_CHAIN_CHECK([+],    [20], [],  [7], [4])
+AT_CHAIN_CHECK([],     [10], [],  [4], [2])
 
-AT_CHAIN_CHECK([1+2*3], [7],  [9], [3])
-AT_CHAIN_CHECK([+2*3], [16],  [9], [4])
-AT_CHAIN_CHECK([1+*3], [31],  [9], [4])
-AT_CHAIN_CHECK([1+2*], [21],  [9], [4])
-AT_CHAIN_CHECK([+*3],  [40],  [9], [5])
-AT_CHAIN_CHECK([1+*], [101],  [9], [5])
-AT_CHAIN_CHECK([+2*],  [30],  [9], [5])
-AT_CHAIN_CHECK([+*],  [110],  [9], [6])
+AT_CHAIN_CHECK([1+2*3], [7], [],  [9], [3])
+AT_CHAIN_CHECK([+2*3], [16], [],  [9], [4])
+AT_CHAIN_CHECK([1+*3], [31], [],  [9], [4])
+AT_CHAIN_CHECK([1+2*], [21], [],  [9], [4])
+AT_CHAIN_CHECK([+*3],  [40], [],  [9], [5])
+AT_CHAIN_CHECK([1+*], [101], [],  [9], [5])
+AT_CHAIN_CHECK([+2*],  [30], [],  [9], [5])
+AT_CHAIN_CHECK([+*],  [110], [],  [9], [6])
 
-AT_CHAIN_CHECK([1*2+3], [5],  [9], [3])
-AT_CHAIN_CHECK([*2+3], [23],  [9], [4])
-AT_CHAIN_CHECK([1*+3], [13],  [9], [4])
-AT_CHAIN_CHECK([1*2+], [12],  [9], [4])
-AT_CHAIN_CHECK([*+3], [103],  [9], [5])
-AT_CHAIN_CHECK([1*+],  [20],  [9], [5])
-AT_CHAIN_CHECK([*2+],  [30],  [9], [5])
-AT_CHAIN_CHECK([*+],  [110],  [9], [6])
+AT_CHAIN_CHECK([1*2+3], [5], [],  [9], [3])
+AT_CHAIN_CHECK([*2+3], [23], [],  [9], [4])
+AT_CHAIN_CHECK([1*+3], [13], [],  [9], [4])
+AT_CHAIN_CHECK([1*2+], [12], [],  [9], [4])
+AT_CHAIN_CHECK([*+3], [103], [],  [9], [5])
+AT_CHAIN_CHECK([1*+],  [20], [],  [9], [5])
+AT_CHAIN_CHECK([*2+],  [30], [],  [9], [5])
+AT_CHAIN_CHECK([*+],  [110], [],  [9], [6])
 
+AT_LAC_IF(
+[AT_CHAIN_CHECK([42 51], [],   [syntax error, unexpected NUM, expecting $end or '+' or '*'], [2], [0])],
+[AT_CHAIN_CHECK([42 51], [42], [syntax error, unexpected NUM, expecting $end],               [4], [1])])
+
+AT_BISON_OPTION_POPDEFS
 AT_CLEANUP
 ])
+
+AT_TEST([yacc.c])
+AT_TEST([yacc.c], [%define parse.lac full])
+AT_TEST([lalr1.cc])
+
+m4_popdef([AT_TEST])
 
 
 
@@ -321,9 +371,11 @@ AT_CLEANUP
 ## Bison Rule Rhs.  ##
 ## ---------------- ##
 
-m4_foreach([b4_skel], [[yacc.c], [lalr1.cc]],
+# AT_TEST(SKELETON, [DIRECTIVES])
+# -------------------------------
+m4_pushdef([AT_TEST],
 [
-AT_SETUP([Bison Rule Rhs: b4_skel])
+AT_SETUP([Bison Rule Rhs: $1 $2])
 
 # At some point during the development of -fchain Bison compiled with
 # -fchain was unable to parse its own grammar.  This test is a
@@ -331,7 +383,7 @@ AT_SETUP([Bison Rule Rhs: b4_skel])
 # ready to look for *all* the paths in build_relations.  It prompted
 # the creation of build_path in lalr.c.
 
-AT_CHAIN_PARSERS(['i' 's'], [%skeleton "]b4_skel["],
+AT_CHAIN_PARSERS(['i' 's'], [%skeleton "$1" $2],
 [[rhs:
   symbol named_ref.opt
 ;
@@ -374,14 +426,23 @@ LEAVES
   symbol: 'i'
 ]])
 
+AT_CHAIN_CHECK([i],  [], [], [ignore], [ignore])
+AT_CHAIN_CHECK([ib], [], [], [ignore], [ignore])
+AT_CHAIN_CHECK([sb], [], [], [ignore], [ignore])
+AT_CHAIN_CHECK([s],  [], [], [ignore], [ignore])
 
-AT_CHAIN_CHECK([i],  [], [ignore], [ignore])
-AT_CHAIN_CHECK([ib], [], [ignore], [ignore])
-AT_CHAIN_CHECK([sb], [], [ignore], [ignore])
-AT_CHAIN_CHECK([s],  [], [ignore], [ignore])
+AT_CHAIN_CHECK([b], [], [syntax error, unexpected 'b', expecting 'i' or 's'], [0], [0])
 
+AT_BISON_OPTION_POPDEFS
 AT_CLEANUP
+
 ])
+
+AT_TEST([yacc.c])
+AT_TEST([yacc.c], [%define parse.lac full])
+AT_TEST([lalr1.cc])
+
+m4_popdef([AT_TEST])
 
 
 ## ---------- ##

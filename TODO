@@ -114,6 +114,10 @@ Be sure to eliminate remains of the now useless non terminals.  Also, we
 still emit "intermediate" gotos needed in lalrc.c.  table.c should no longer
 emit them.
 
+*** yacc.c
+how about introducing a function to compute the gotos, as in lalr1.cc and
+glr.c?  Currently, it's inlined twice (second time for LAC).
+
 * Modernization
 Fix data/skeletons/yacc.c so that it defines YYPTRDIFF_T properly for modern
 and older C++ compilers.  Currently the code defaults to defining it to

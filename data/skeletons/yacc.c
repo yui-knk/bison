@@ -1002,11 +1002,20 @@ yy_lac (yy_state_num *yyesa, yy_state_num **yyes,
       {
         int yystate;
         {
-          const int yylhs = yyr1[yyrule] - YYNTOKENS;
-          const int yyi = yypgoto[yylhs] + *yyesp;
-          yystate = (0 <= yyi && yyi <= YYLAST && yycheck[yyi] == *yyesp
-                     ? yytable[yyi]
-                     : yydefgoto[yylhs]);
+          const int yylhs = yyr1[yyrule];]b4_eliminate_chains_if([[
+          if (yylhs < YYNTOKENS)
+            {
+              const int yyi = yypact[*yyesp] + yylhs;]b4_parse_assert_if([[
+              YY_ASSERT (0 <= yyi && yyi <= YYLAST && yycheck[yyi] == yylhs);]])[
+              yystate = yytable[yyi];
+            }
+          else
+            {]])[
+              const int yyi = yypgoto[yylhs - YYNTOKENS] + *yyesp;
+              yystate = ((0 <= yyi && yyi <= YYLAST && yycheck[yyi] == *yyesp
+                          ? yytable[yyi]
+                          : yydefgoto[yylhs - YYNTOKENS]));]b4_eliminate_chains_if([[
+            }]])[
         }
         if (yyesp == yyes_prev)
           {
