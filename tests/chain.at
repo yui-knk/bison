@@ -36,7 +36,7 @@ AT_DATA_GRAMMAR([[input.y]],
   ]AT_YYERROR_DECLARE[
 }
 
-%define parse.assert
+]AT_GLR_IF([], [%define parse.assert])[
 %define parse.error verbose
 %define parse.trace
 ]$2[
@@ -178,7 +178,9 @@ AT_CLEANUP
 
 AT_TEST([yacc.c])
 AT_TEST([yacc.c], [%define parse.lac full])
+AT_TEST([glr.c])
 AT_TEST([lalr1.cc])
+AT_TEST([glr.cc])
 
 m4_popdef([AT_TEST])
 
@@ -265,7 +267,9 @@ AT_CLEANUP
 
 AT_TEST([yacc.c])
 AT_TEST([yacc.c], [%define parse.lac full])
+AT_TEST([glr.c])
 AT_TEST([lalr1.cc])
+AT_TEST([glr.cc])
 
 m4_popdef([AT_TEST])
 
@@ -361,7 +365,9 @@ AT_CLEANUP
 
 AT_TEST([yacc.c])
 AT_TEST([yacc.c], [%define parse.lac full])
+AT_TEST([glr.c])
 AT_TEST([lalr1.cc])
+AT_TEST([glr.cc])
 
 m4_popdef([AT_TEST])
 
@@ -440,7 +446,9 @@ AT_CLEANUP
 
 AT_TEST([yacc.c])
 AT_TEST([yacc.c], [%define parse.lac full])
+AT_TEST([glr.c])
 AT_TEST([lalr1.cc])
+AT_TEST([glr.cc])
 
 m4_popdef([AT_TEST])
 

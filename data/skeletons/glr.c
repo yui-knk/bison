@@ -33,6 +33,10 @@ m4_define_default([b4_stack_depth_max], [10000])
 m4_define_default([b4_stack_depth_init],  [200])
 
 
+# eliminate_chains
+# ----------------
+b4_define_flag_if([eliminate_chains])
+
 
 ## ------------------------ ##
 ## Pure/impure interfaces.  ##
@@ -1024,16 +1028,25 @@ yygetLRActions (yyStateNum yystate, yySymbol yytoken, const short** yyconflicts)
 
 /** Compute post-reduction state.
  * \param yystate   the current state
- * \param yysym     the nonterminal to push on the stack
+ * \param yysym     the symbol to push on the stack
  */
 static inline yyStateNum
 yyLRgotoState (yyStateNum yystate, yySymbol yysym)
-{
-  int yyr = yypgoto[yysym - YYNTOKENS] + yystate;
-  if (0 <= yyr && yyr <= YYLAST && yycheck[yyr] == yystate)
-    return yytable[yyr];
+{]b4_eliminate_chains_if([[
+  if (yysym < YYNTOKENS)
+    {
+      const int yyr = yypact[yystate] + yysym;]b4_parse_assert_if([[
+      YYASSERT (0 <= yyr && yyr <= YYLAST && yycheck[yyr] == yysym);]])[
+      return yytable[yyr];
+    }
   else
-    return yydefgoto[yysym - YYNTOKENS];
+    {]])[
+      const int yyr = yypgoto[yysym - YYNTOKENS] + yystate;
+      if (0 <= yyr && yyr <= YYLAST && yycheck[yyr] == yystate)
+        return yytable[yyr];
+      else
+        return yydefgoto[yysym - YYNTOKENS];]b4_eliminate_chains_if([[
+    }]])[
 }
 
 static inline yybool
