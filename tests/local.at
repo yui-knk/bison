@@ -751,6 +751,8 @@ m4_define([AT_JAVA_POSITION_DEFINE],
 }]])
 
 
+m4_define([AT_YYERROR_DECLARE(java)], [])
+
 m4_define([AT_YYERROR_DEFINE(java)],
 [AT_LOCATION_IF([[public void yyerror (Calc.Location l, String m)
 {
@@ -789,17 +791,26 @@ m4_define([AT_YYLEX_DEFINE(java)],
 ]])
 
 m4_define([AT_MAIN_DEFINE(java)],
-[[class input
+[[class ]m4_default([$1], [input])[
 {
   public static void main (String args[]) throws IOException
   {
-    ]AT_API_prefix[Parser p = new ]AT_API_prefix[Parser ();
+    ]AT_API_prefix[Parser p = new ]AT_API_prefix[Parser ();]AT_DEBUG_IF([[
+    int yydebug = System.getenv("YYDEBUG") == null ? 0 : 1;
+    for (String arg: args)
+      if (arg.equals("-p") || arg.equals("-d") || arg.equals("--debug"))
+        yydebug |= 1;
+      else if (arg.equals("-s") || arg.equals("--stat"))
+        yydebug |= 2;
+    p.setDebugLevel (yydebug);]])[
     System.exit (p.parse () ? 0 : 1);
   }
 }]])
 
 m4_define([AT_LANG_FOR_EACH_STD(java)],
 [$1])
+
+
 
 ## --------------- ##
 ## Running Bison.  ##

@@ -25,6 +25,20 @@ m4_define([b4_symbol_no_destructor_assert],
                               [%destructor does not make sense in Java])])])
 b4_symbol_foreach([b4_symbol_no_destructor_assert])
 
+# eliminate_chains
+# ----------------
+b4_define_flag_if([eliminate_chains])
+
+# parse_assert
+# ------------
+# Disable the warning about parse.assert if it is not used (it's
+# used only when eliminate_chains is enabled).
+b4_parse_assert_if
+
+## ------------------------ ##
+## Pure/impure interfaces.  ##
+## ------------------------ ##
+
 # Setup some macros for api.push-pull.
 b4_percent_define_default([[api.push-pull]], [[pull]])
 b4_percent_define_check_values([[[[api.push-pull]],
@@ -441,15 +455,24 @@ b4_locations_if([[
 
   /** Compute post-reduction state.
    * @@param yystate   the current state
-   * @@param yysym     the nonterminal to push on the stack
+   * @@param yysym     the symbol to push on the stack
    */
   private int yyLRGotoState (int yystate, int yysym)
-  {
-    int yyr = yypgoto_[yysym - yyntokens_] + yystate;
-    if (0 <= yyr && yyr <= yylast_ && yycheck_[yyr] == yystate)
-      return yytable_[yyr];
+  {]b4_eliminate_chains_if([[
+    if (yysym < yyntokens_)
+      {
+        int yyr = yypact_[yystate] + yysym;]b4_parse_assert_if([[
+        assert 0 <= yyr && yyr <= yylast_ && yycheck_[yyr] == yysym;]])[
+        return yytable_[yyr];
+      }
     else
-      return yydefgoto_[yysym - yyntokens_];
+      {]])[
+        int yyr = yypgoto_[yysym - yyntokens_] + yystate;
+        if (0 <= yyr && yyr <= yylast_ && yycheck_[yyr] == yystate)
+          return yytable_[yyr];
+        else
+          return yydefgoto_[yysym - yyntokens_];]b4_eliminate_chains_if([[
+    }]])[
   }
 
   private int yyaction (int yyn, YYStack yystack, int yylen) ]b4_maybe_throws([b4_throws])[

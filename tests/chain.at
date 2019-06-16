@@ -23,10 +23,23 @@ AT_BANNER([[Useless Chains Elimination.]])
 m4_pushdef([AT_CHAIN_PARSERS],
 [AT_KEYWORDS([chain])
 
-AT_BISON_OPTION_PUSHDEFS([%define parse.trace $2])
+# We generate two parsers in the same directory.  In Java we generate
+# auxiliary files named after the parser class.  So we must use
+# api.prefix (or api.parser.class) to avoid collisions.
+AT_BISON_OPTION_PUSHDEFS([%define parse.trace $2] m4_bmatch([$2], [lalr1.java], [[%define api.prefix {PREFIXX}]]))
 
 AT_DATA_GRAMMAR([[input.y]],
-[[%code {
+[AT_JAVA_IF([[
+%code imports {
+  import java.io.IOException;
+  import java.io.InputStream;
+  import java.io.InputStreamReader;
+  import java.io.Reader;
+  import java.io.StreamTokenizer;
+}
+%define api.prefix {PREFIXX}
+]], [[
+%code {
   #include <ctype.h>  /* isdigit. */
   #include <stdio.h>
   #include <stdlib.h> /* abort. */
@@ -34,7 +47,7 @@ AT_DATA_GRAMMAR([[input.y]],
 
   ]AT_YYLEX_DECLARE[
   ]AT_YYERROR_DECLARE[
-}
+}]])[
 
 ]AT_GLR_IF([], [%define parse.assert])[
 %define parse.error verbose
@@ -44,16 +57,65 @@ AT_DATA_GRAMMAR([[input.y]],
 %define global_tokens_and_yystype
 ]])[
 
+]AT_JAVA_IF([[
+%token <Integer> NUM
+%type  <Integer> ]$1[
+]], [[
 %union {
   int val;
 }
+// Use "end of input" instead of "$end", since that what the Java
+// skeleton does anyway.  This way, the error messages are consistant.
+%token EOI 0 "end of input"
 %token <val> NUM
 %type  <val> ]$1[
 %printer { ]AT_CXX_IF([[yyo << $$]],
                       [[fprintf (yyo, "%d", $$)]])[; } <val>
-
+]])[
 %%
 ]$3[
+
+]AT_JAVA_IF([[
+%code lexer {
+  StreamTokenizer st;
+
+  public YYLexer ()
+  {
+    st = new StreamTokenizer (new InputStreamReader (System.in));
+    st.resetSyntax ();
+    st.eolIsSignificant (false);
+    st.whitespaceChars ('\t', '\t');
+    st.whitespaceChars ('\n', '\n');
+    st.whitespaceChars (' ', ' ');
+    st.wordChars ('0', '9');
+  }
+
+  ]AT_YYERROR_DEFINE[
+
+  Integer yylval;
+
+  public Object getLVal() {
+    return yylval;
+  }
+
+  public int yylex () throws IOException {
+    int ttype = st.nextToken ();
+    if (ttype == st.TT_EOF)
+      return EOF;
+
+    else if (ttype == st.TT_WORD)
+      {
+        yylval = new Integer (st.sval);
+        return NUM;
+      }
+
+    else
+      return st.ttype;
+  }
+};
+%%
+]AT_MAIN_DEFINE()[
+]], [[
 %%
 
 ]AT_YYLEX_PROTOTYPE[
@@ -75,15 +137,17 @@ AT_DATA_GRAMMAR([[input.y]],
 
 ]AT_YYERROR_DEFINE[
 ]AT_MAIN_DEFINE[
+]])[
+
 ]])
 
-AT_CHECK([cp input.y with-chains.y])
-AT_FULL_COMPILE([[with-chains]], [], [], [],
-                [--trace=sets 2>with-chains.traces])
+AT_CHECK([sed 's/class input/class withchains/g;s/PREFIXX/withchains/g' <input.y >withchains.y])
+AT_FULL_COMPILE([[withchains]], [], [], [],
+                [-fcaret --trace=sets 2>withchains.traces])
 
-AT_CHECK([cp input.y without-chains.y])
-AT_FULL_COMPILE([[without-chains]], [], [], [],
-                [-fchain --trace=sets 2>without-chains.traces])
+AT_CHECK([sed 's/class input/class withoutchains/g;s/PREFIXX/withoutchains/g' <input.y >withoutchains.y])
+AT_FULL_COMPILE([[withoutchains]], [], [], [],
+                [-fcaret -fchain --trace=sets 2>withoutchains.traces])
 
 ])
 
@@ -95,19 +159,17 @@ m4_pushdef([AT_CHAIN_CHECK],
 [AT_DATA([[in.txt]],
 [[$1
 ]])
-AT_PARSER_CHECK([with-chains <in.txt], [m4_ifval([$3], [1], [0])], [m4_ifval([$2], [$2
-])], [m4_ifval([$3], [$3
-])])
-AT_PARSER_CHECK([with-chains -s <in.txt], [ignore], [ignore], [stderr])
+AT_PARSER_CHECK([withchains <in.txt], [m4_ifval([$3], [1], [0])],
+                [m4_ifvaln([$2], [$2])], [m4_ifvaln([$3], [$3])])
+AT_PARSER_CHECK([withchains -s <in.txt], [ignore], [ignore], [stderr])
 # AT_CHECK([sed -n '/num_reductions: /{s///;p;q;}' stderr], [], [$4
 # ])
 AT_CHECK([grep -c '^Reducing' stderr], [ignore], [m4_if([$4], [ignore], [$4], [$4
 ])])
 
-AT_PARSER_CHECK([without-chains <in.txt], [m4_ifval([$3], [1], [0])], [m4_ifval([$2], [$2
-])], [m4_ifval([$3], [$3
-])])
-AT_PARSER_CHECK([without-chains -s <in.txt], [ignore], [ignore], [stderr])
+AT_PARSER_CHECK([withoutchains <in.txt], [m4_ifval([$3], [1], [0])],
+                [m4_ifvaln([$2], [$2])], [m4_ifvaln([$3], [$3])])
+AT_PARSER_CHECK([withoutchains -s <in.txt], [ignore], [ignore], [stderr])
 #AT_CHECK([sed -n '/num_reductions: /{s///;p;q;}' stderr], [], [
 #])
 AT_CHECK([grep -c '^Reducing' stderr], [ignore], [m4_if([$5], [ignore], [$5], [$5
@@ -129,12 +191,12 @@ AT_SETUP([Lalonde: $1 $2])
 
 AT_CHAIN_PARSERS([expr term], [%skeleton "$1" $2],
 [[
-res:  expr { printf ("%d\n", $][1); };
+res:  expr { ]AT_JAVA_IF([[System.out.println ($][1)]], [[printf ("%d\n", $][1)]])[; };
 expr: expr '+' term { $$ = $][1 + $][3; } | term;
 term: term '*' NUM  { $$ = $][1 * $][3; } | NUM;
 ]])
 
-AT_SETS_CHECK([with-chains.traces], [DESCENDANTS, LEAVES],
+AT_SETS_CHECK([withchains.traces], [DESCENDANTS, LEAVES],
 [[DESCENDANTS
   $accept: $accept
   res: res
@@ -147,7 +209,7 @@ LEAVES
   term: term
 ]])
 
-AT_SETS_CHECK([without-chains.traces], [DESCENDANTS, LEAVES],
+AT_SETS_CHECK([withoutchains.traces], [DESCENDANTS, LEAVES],
 [[DESCENDANTS
   $accept: $accept
   res: res
@@ -167,10 +229,10 @@ AT_CHAIN_CHECK([1+2*3*4+5], [30], [], [9], [5])
 AT_CHAIN_CHECK([1*2+3+4*5], [25], [], [9], [5])
 
 AT_LAC_IF(
-[AT_CHAIN_CHECK([42 51], [],   [syntax error, unexpected NUM, expecting $end or '+' or '*'], [1], [0])
- AT_CHAIN_CHECK([16++],  [],   [syntax error, unexpected '+', expecting NUM],                [2], [0])],
-[AT_CHAIN_CHECK([42 51], [42], [syntax error, unexpected NUM, expecting $end],               [3], [1])
- AT_CHAIN_CHECK([16++],  [],   [syntax error, unexpected '+', expecting NUM],                [2], [0])])
+[AT_CHAIN_CHECK([42 51], [],   [syntax error, unexpected NUM, expecting end of input or '+' or '*'], [1], [0])
+ AT_CHAIN_CHECK([16++],  [],   [syntax error, unexpected '+', expecting NUM],                        [2], [0])],
+[AT_CHAIN_CHECK([42 51], [42], [syntax error, unexpected NUM, expecting end of input],               [3], [1])
+ AT_CHAIN_CHECK([16++],  [],   [syntax error, unexpected '+', expecting NUM],                        [2], [0])])
 
 AT_BISON_OPTION_POPDEFS
 AT_CLEANUP
@@ -181,6 +243,7 @@ AT_TEST([yacc.c], [%define parse.lac full])
 AT_TEST([glr.c])
 AT_TEST([lalr1.cc])
 AT_TEST([glr.cc])
+AT_TEST([lalr1.java])
 
 m4_popdef([AT_TEST])
 
@@ -198,7 +261,7 @@ AT_SETUP([Full Arithmetics: $1 $2])
 
 AT_CHAIN_PARSERS([expr term fact], [%skeleton "$1" $2],
 [[
-res:  expr           { printf ("%d\n", $][1); };
+res:  expr           { ]AT_JAVA_IF([[System.out.println ($][1)]], [[printf ("%d\n", $][1)]])[; };
 expr: expr '+' term  { $$ = $][1 + $][3; }
     | expr '-' term  { $$ = $][1 - $][3; }
     | term;
@@ -211,7 +274,7 @@ fact: '(' expr ')'   { $$ = $][2; }
     | NUM;
 ]])
 
-AT_SETS_CHECK([with-chains.traces], [DESCENDANTS, LEAVES],
+AT_SETS_CHECK([withchains.traces], [DESCENDANTS, LEAVES],
 [[DESCENDANTS
   $accept: $accept
   res: res
@@ -226,7 +289,7 @@ LEAVES
   fact: fact
 ]])
 
-AT_SETS_CHECK([without-chains.traces], [DESCENDANTS, LEAVES],
+AT_SETS_CHECK([withoutchains.traces], [DESCENDANTS, LEAVES],
 [[DESCENDANTS
   $accept: $accept
   res: res
@@ -258,7 +321,7 @@ AT_CHAIN_CHECK([(+1+--2)*+3],    [9], [], [16], [8])
 AT_LAC_IF(
 [AT_CHAIN_CHECK([42 51], [],   [syntax error, unexpected NUM],                                       [2], [0])
  AT_CHAIN_CHECK([16**],  [],   [[syntax error, unexpected '*', expecting NUM or '+' or '-' or '(']], [2], [0])],
-[AT_CHAIN_CHECK([42 51], [42], [syntax error, unexpected NUM, expecting $end],                       [4], [1])
+[AT_CHAIN_CHECK([42 51], [42], [syntax error, unexpected NUM, expecting end of input],               [4], [1])
  AT_CHAIN_CHECK([16**],  [],   [[syntax error, unexpected '*', expecting NUM or '+' or '-' or '(']], [2], [0])])
 
 AT_BISON_OPTION_POPDEFS
@@ -270,6 +333,7 @@ AT_TEST([yacc.c], [%define parse.lac full])
 AT_TEST([glr.c])
 AT_TEST([lalr1.cc])
 AT_TEST([glr.cc])
+AT_TEST([lalr1.java])
 
 m4_popdef([AT_TEST])
 
@@ -286,7 +350,7 @@ AT_SETUP([Nullable Arithmetics: $1 $2])
 
 AT_CHAIN_PARSERS([expr term fact], [%skeleton "$1" $2],
 [[
-res:  expr           { printf ("%d\n", $][1); };
+res:  expr           { ]AT_JAVA_IF([[System.out.println ($][1)]], [[printf ("%d\n", $][1)]])[; };
 expr: expr '+' term  { $$ = $][1 + $][3; }
     | term;
 term: term '*' fact  { $$ = $][1 * $][3; }
@@ -295,7 +359,7 @@ fact: NUM
     | %empty         { $$ = 10; };
 ]])
 
-AT_SETS_CHECK([with-chains.traces], [DESCENDANTS, LEAVES],
+AT_SETS_CHECK([withchains.traces], [DESCENDANTS, LEAVES],
 [[DESCENDANTS
   $accept: $accept
   res: res
@@ -310,7 +374,7 @@ LEAVES
   fact: fact
 ]])
 
-AT_SETS_CHECK([without-chains.traces], [DESCENDANTS, LEAVES],
+AT_SETS_CHECK([withoutchains.traces], [DESCENDANTS, LEAVES],
 [[DESCENDANTS
   $accept: $accept
   res: res
@@ -356,8 +420,8 @@ AT_CHAIN_CHECK([*2+],  [30], [],  [9], [5])
 AT_CHAIN_CHECK([*+],  [110], [],  [9], [6])
 
 AT_LAC_IF(
-[AT_CHAIN_CHECK([42 51], [],   [syntax error, unexpected NUM, expecting $end or '+' or '*'], [2], [0])],
-[AT_CHAIN_CHECK([42 51], [42], [syntax error, unexpected NUM, expecting $end],               [4], [1])])
+[AT_CHAIN_CHECK([42 51], [],   [syntax error, unexpected NUM, expecting end of input or '+' or '*'], [2], [0])],
+[AT_CHAIN_CHECK([42 51], [42], [syntax error, unexpected NUM, expecting end of input],               [4], [1])])
 
 AT_BISON_OPTION_POPDEFS
 AT_CLEANUP
@@ -368,6 +432,7 @@ AT_TEST([yacc.c], [%define parse.lac full])
 AT_TEST([glr.c])
 AT_TEST([lalr1.cc])
 AT_TEST([glr.cc])
+AT_TEST([lalr1.java])
 
 m4_popdef([AT_TEST])
 
@@ -406,7 +471,7 @@ symbol:
 
 ]])
 
-AT_SETS_CHECK([with-chains.traces], [DESCENDANTS, LEAVES],
+AT_SETS_CHECK([withchains.traces], [DESCENDANTS, LEAVES],
 [[DESCENDANTS
   $accept: $accept
   rhs: rhs
@@ -419,7 +484,7 @@ LEAVES
   symbol: symbol
 ]])
 
-AT_SETS_CHECK([without-chains.traces], [DESCENDANTS, LEAVES],
+AT_SETS_CHECK([withoutchains.traces], [DESCENDANTS, LEAVES],
 [[DESCENDANTS
   $accept: $accept
   rhs: rhs
@@ -449,6 +514,7 @@ AT_TEST([yacc.c], [%define parse.lac full])
 AT_TEST([glr.c])
 AT_TEST([lalr1.cc])
 AT_TEST([glr.cc])
+AT_TEST([lalr1.java])
 
 m4_popdef([AT_TEST])
 
