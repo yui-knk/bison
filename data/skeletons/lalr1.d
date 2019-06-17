@@ -1,6 +1,6 @@
-# Java skeleton for Bison -*- autoconf -*-
+# D skeleton for Bison -*- autoconf -*-
 
-# Copyright (C) 2007-2011, 2019 Free Software Foundation, Inc.
+# Copyright (C) 2007-2012, 2019 Free Software Foundation, Inc.
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,6 +17,16 @@
 
 m4_include(b4_skeletonsdir/[d.m4])
 
+
+# eliminate_chains
+# ----------------
+b4_define_flag_if([eliminate_chains])
+
+# parse_assert
+# ------------
+# Disable the warning about parse.assert if it is not used (it's
+# used only when eliminate_chains is enabled).
+b4_parse_assert_if
 
 b4_output_begin([b4_parser_file_name])
 b4_copyright([Skeleton implementation for Bison LALR(1) parsers in D],
@@ -343,15 +353,26 @@ b4_user_union_members
     yystack.pop (yylen);
     yylen = 0;
 
-    /* Shift the result of the reduction.  */
-    yyn = yyr1_[yyn];
-    int yystate = yypgoto_[yyn - yyntokens_] + yystack.stateAt (0);
-    if (0 <= yystate && yystate <= yylast_
-        && yycheck_[yystate] == yystack.stateAt (0))
-      yystate = yytable_[yystate];
-    else
-      yystate = yydefgoto_[yyn - yyntokens_];
-
+    /* Now 'shift' the result of the reduction.  Determine what state
+       that goes to, based on the state we popped back to and the rule
+       number reduced by.  */
+    int yystate;
+    {
+      const int yylhs = yyr1_[yyn];]b4_eliminate_chains_if([[
+      if (yylhs < yyntokens_)
+        {
+          const int yyi = yypact_[yystack.stateAt (0)] + yylhs;]b4_parse_assert_if([[
+          assert (0 <= yyi && yyi <= yylast_ && yycheck_[yyi] == yylhs);]])[
+          yystate = yytable_[yyi];
+        }
+      else
+        {]])[
+          const int yyi = yypgoto_[yylhs - yyntokens_] + yystack.stateAt (0);
+          yystate = (0 <= yyi && yyi <= yylast_ && yycheck_[yyi] == yystack.stateAt (0)
+                     ? yytable_[yyi]
+                     : yydefgoto_[yylhs - yyntokens_]);]b4_eliminate_chains_if([[
+        }]])[
+    }
     yystack.push (yystate, yyval]b4_locations_if([, yyloc])[);
     return YYNEWSTATE;
   }
