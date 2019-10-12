@@ -623,8 +623,8 @@ yytnamerr (char *yyres, const char *yystr)
 
 #endif /* !YYERROR_VERBOSE */
 
-/** State numbers, as in LALR(1) machine */
-typedef int yyStateNum;
+/** Stored state numbers (used for stacks). */
+typedef ]b4_int_type(0, m4_eval(b4_states_number - 1))[ yyStateNum;
 
 /** Rule numbers, as in LALR(1) machine */
 typedef int yyRuleNum;
@@ -1991,13 +1991,10 @@ yyprocessOneStack (yyGLRStack* yystackp, ptrdiff_t yyk,
         }
       else
         {
-          yySymbol yytoken;
-          int yyaction;
+          yySymbol yytoken = ]b4_yygetToken_call[;
           const short* yyconflicts;
-
+          const int yyaction = yygetLRActions (yystate, yytoken, &yyconflicts);
           yystackp->yytops.yylookaheadNeeds[yyk] = yytrue;
-          yytoken = ]b4_yygetToken_call[;
-          yyaction = yygetLRActions (yystate, yytoken, &yyconflicts);
 
           while (*yyconflicts != 0)
             {
@@ -2266,7 +2263,7 @@ yyrecoverSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
               YYLLOC_DEFAULT (yyerrloc, (yystackp->yyerror_range), 2);]])[
               YY_SYMBOL_PRINT ("Shifting", yystos[yyaction],
                                &yylval, &yyerrloc);
-              yyglrShift (yystackp, 0, yyaction,
+              yyglrShift (yystackp, 0, (yyStateNum) yyaction,
                           yys->yyposn, &yylval]b4_locations_if([, &yyerrloc])[);
               yys = yystackp->yytops.yystates[0];
               break;
@@ -2367,7 +2364,7 @@ b4_dollar_popdef])[]dnl
                   YY_SYMBOL_PRINT ("Shifting", yytoken, &yylval, &yylloc);
                   yychar = YYEMPTY;
                   yyposn += 1;
-                  yyglrShift (&yystack, 0, yyaction, yyposn, &yylval]b4_locations_if([, &yylloc])[);
+                  yyglrShift (&yystack, 0, (yyStateNum) yyaction, yyposn, &yylval]b4_locations_if([, &yylloc])[);
                   if (0 < yystack.yyerrState)
                     yystack.yyerrState -= 1;
                 }
@@ -2444,7 +2441,7 @@ b4_dollar_popdef])[]dnl
               /* Note that yyconflicts were handled by yyprocessOneStack.  */
               YYDPRINTF ((stderr, "On stack %ld, ", (long) yys));
               YY_SYMBOL_PRINT ("shifting", yytoken_to_shift, &yylval, &yylloc);
-              yyglrShift (&yystack, yys, yyaction, yyposn,
+              yyglrShift (&yystack, yys, (yyStateNum) yyaction, yyposn,
                           &yylval]b4_locations_if([, &yylloc])[);
               YYDPRINTF ((stderr, "Stack %ld now in state #%d\n",
                           (long) yys,
