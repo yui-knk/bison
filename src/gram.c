@@ -167,9 +167,9 @@ ritem_print (FILE *out)
   fputs ("RITEM\n", out);
   for (int i = 0; i < nritems; ++i)
     if (ritem[i] >= 0)
-      fprintf (out, "  %s", symbols[ritem[i]]->tag);
+      fprintf (out, "  %s(%d)", symbols[ritem[i]]->tag, ritem[i]);
     else
-      fprintf (out, "  (rule %d)\n", item_number_as_rule_number (ritem[i]));
+      fprintf (out, "  (rule %d, %d)\n", item_number_as_rule_number (ritem[i]), ritem[i]);
   fputs ("\n\n", out);
 }
 

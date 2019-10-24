@@ -58,6 +58,24 @@ core_print (size_t core_size, item_number *core, FILE *out)
     }
 }
 
+static void
+state_print (FILE *out)
+{
+  fputs ("STATES\n", out);
+  for (state_number i = 0; i < nstates; ++i)
+    {
+      state *s = states[i];
+      fprintf (out, "state: %d (nitems: %d)\n", s->number, s->nitems);
+
+      for (item_number j = 0; j < s->nitems; ++j)
+        {
+          fputs ("  items\n", out);
+          fprintf (out, "    %d\n", s->items[j]);
+        }
+    }
+  fputs ("\n\n", out);
+}
+
 /*------------------------------------------------------------------.
 | A state was just discovered from another state.  Queue it for     |
 | later examination, in order to find its transitions.  Return it.  |
@@ -424,4 +442,9 @@ generate_states (void)
 
   /* Set up STATES. */
   set_states ();
+
+  if (trace_flag & trace_me)
+    {
+      state_print (stderr);
+    }
 }

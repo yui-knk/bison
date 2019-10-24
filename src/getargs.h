@@ -105,6 +105,7 @@ enum trace
     trace_ielr      = 1 << 12, /**< IELR conversion. */
     trace_closure   = 1 << 13, /**< Input/output of closure(). */
     trace_locations = 1 << 14, /**< Full display of locations. */
+    trace_me        = 1 << 15,
     trace_all       = ~0       /**< All of the above.  */
   };
 /** What debug items bison displays during its run.  */
