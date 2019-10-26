@@ -58,6 +58,10 @@ core_print (size_t core_size, item_number *core, FILE *out)
     }
 }
 
+/*---------------------.
+| state_print related. |
+`---------------------*/
+
 static void
 state_print (FILE *out)
 {
@@ -65,12 +69,27 @@ state_print (FILE *out)
   for (state_number i = 0; i < nstates; ++i)
     {
       state *s = states[i];
-      fprintf (out, "state: %d (nitems: %d)\n", s->number, s->nitems);
+      fprintf (out, "state: %d, accessing: %s\n", s->number, symbols[s->accessing_symbol]->tag);
 
       for (item_number j = 0; j < s->nitems; ++j)
         {
-          fputs ("  items\n", out);
+          if (j == 0)
+            fprintf (out, "  items (nitems: %d)\n", s->nitems);
           fprintf (out, "    %d\n", s->items[j]);
+        }
+
+      for (int j = 0; j < s->transitions->num; ++j)
+        {
+          if (j == 0)
+            fputs ("  transitions\n", out);
+          fprintf (out, "    %d\n", s->transitions->states[j]->number);
+        }
+
+      for (int j = 0; j < s->reductions->num; ++j)
+        {
+          if (j == 0)
+            fputs ("  reductions\n", out);
+          fprintf (out, "    %d\n", s->reductions->rules[j]->number);
         }
     }
   fputs ("\n\n", out);
