@@ -63,7 +63,7 @@ closure_print (char const *title, item_number const *array, size_t size)
       item_number *rp;
       for (rp = &ritem[array[i]]; *rp >= 0; ++rp)
         fprintf (stderr, " %s", symbols[*rp]->tag);
-      fprintf (stderr, "  (rule %d)\n", -*rp - 1);
+      fprintf (stderr, "  (rule %d)\n", item_number_as_rule_number (*rp));
     }
   fputs ("\n\n", stderr);
 }
