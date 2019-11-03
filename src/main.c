@@ -96,8 +96,8 @@ main (int argc, char *argv[])
   if (trace_flag & trace_bitsets)
     bitset_stats_enable ();
 
-  /* Read the input.  Copy some parts of it to FGUARD, FACTION, FTABLE
-     and FATTRS.  In file reader.c.  The other parts are recorded in
+  /* Read the input.  Copy some parts of it to
+     and.  In file reader.c.  The other parts are recorded in
      the grammar; see gram.h.  */
 
   timevar_push (tv_reader);
@@ -146,6 +146,8 @@ main (int argc, char *argv[])
     }
   conflicts_print ();
   timevar_pop (tv_conflicts);
+
+  uncompressed_talbes_print ();
 
   /* Compute the parser tables.  */
   timevar_push (tv_actions);

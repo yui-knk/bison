@@ -39,7 +39,7 @@
    We call such an index a 'vector'; i.e., a vector is either a state
    or a nonterminal number.
 
-   Of course vector_number_t ought to be wide enough to contain
+   Of course vector_number ought to be wide enough to contain
    state_number and symbol_number.  */
 typedef int vector_number;
 
@@ -93,7 +93,7 @@ static base_number *width;
 
    If N = 0, stands for 'run the default action'.
    If N = MIN, stands for 'raise a syntax error'.
-   If N > 0, stands for 'shift SYMBOL and go to n'.
+   If N > 0, stands for 'shift SYMBOL and go to N'.
    If N < 0, stands for 'reduce -N'.  */
 typedef int action_number;
 #define ACTION_NUMBER_MINIMUM INT_MIN

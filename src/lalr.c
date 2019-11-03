@@ -90,9 +90,20 @@ goto_print (goto_number i, FILE *out)
 {
   const state_number src = from_state[i];
   const state_number dst = to_state[i];
-  symbol_number var = states[dst]->accessing_symbol;
+  const symbol_number var = states[dst]->accessing_symbol;
   fprintf (out,
            "goto[%ld] = (%d, %s, %d)", i, src, symbols[var]->tag, dst);
+}
+
+static void
+goto_map_print(const char *title, goto_number *map, FILE *out)
+{
+  fprintf(stderr, "%s in goto_map_print (ngotos: %ld)\n", title, map[nvars]);
+  for (int i = 0; i < nvars; ++i)
+    {
+      printf("  %s: %ld\n", symbols[i + ntokens]->tag, map[i]);
+    }
+  fprintf(stderr, "\n");
 }
 
 void
@@ -113,6 +124,9 @@ set_goto_map (void)
         }
     }
 
+  if (trace_flag & trace_me)
+    goto_map_print ("goto_map", goto_map, stderr);
+
   goto_number *temp_map = xnmalloc (nvars + 1, sizeof *temp_map);
   {
     goto_number k = 0;
@@ -129,6 +143,12 @@ set_goto_map (void)
     temp_map[nsyms - ntokens] = ngotos;
   }
 
+  if (trace_flag & trace_me)
+    {
+      goto_map_print ("goto_map", goto_map, stderr);
+      goto_map_print ("temp_map", temp_map, stderr);
+    }
+
   from_state = xcalloc (ngotos, sizeof *from_state);
   to_state = xcalloc (ngotos, sizeof *to_state);
 
@@ -137,7 +157,7 @@ set_goto_map (void)
       const transitions *trans = states[s]->transitions;
       for (int i = trans->num - 1; 0 <= i && TRANSITION_IS_GOTO (trans, i); --i)
         {
-          goto_number k = temp_map[TRANSITION_SYMBOL (trans, i) - ntokens]++;
+          const goto_number k = temp_map[TRANSITION_SYMBOL (trans, i) - ntokens]++;
           from_state[k] = s;
           to_state[k] = trans->states[i]->number;
         }
@@ -609,6 +629,102 @@ lalr_update_state_numbers (state_number old_to_new[], state_number nstates_old)
   ngotos = ngotos_reachable;
 }
 
+
+void
+uncompressed_talbes_print (void)
+{
+  /* $end, error, $undefined are skipped */
+  int ntarget_syms = nsyms - 3;
+  symbol_number *target_syms;
+  /* sym to index of target_syms */
+  int *target_syms_inv;
+
+  target_syms = xnmalloc (ntarget_syms, sizeof *target_syms);
+  target_syms_inv = xnmalloc (ntarget_syms, sizeof *target_syms_inv);
+
+  {
+    int index = 0;
+
+    for (int i = 3; i < ntokens; ++i)
+      {
+        target_syms[index] = i;
+        ++index;
+      }
+
+    for (int i = ntokens; i < nsyms; ++i)
+      {
+        target_syms[index] = i;
+        ++index;
+      }
+
+    for (int i = 0; i < ntarget_syms; ++i)
+      target_syms_inv[i] = target_syms[i];
+  }
+
+  fprintf (stderr, "\nuncompressed_talbes_print\n\n");
+
+  fprintf (stderr, "|    |");
+  for (int i = 0; i < ntarget_syms; ++i)
+    fprintf (stderr, "  %s |", symbols[target_syms[i]]->tag);
+  fprintf (stderr, "\n");
+
+  fprintf (stderr, "|----|");
+  for (int i = 0; i < ntarget_syms; ++i)
+    fprintf (stderr, "----|");
+  fprintf (stderr, "\n");
+
+  for (state_number i = 0; i < nstates; ++i)
+    {
+      state *s = states[i];
+      fprintf (stderr, "|  %d |", i);
+
+      for (int j = 0; j < ntarget_syms; ++j)
+        {
+          bool hit = false;
+          int sym = target_syms[j];
+
+          if (ISTOKEN (sym))
+            {
+              for (int k = 0; k < s->transitions->num; ++k)
+                {
+                  if (s->transitions->states[k]->accessing_symbol == sym)
+                    {
+                      fprintf (stderr, " s%d |", s->transitions->states[k]->number);
+                      hit = true;
+                    }
+                }
+
+              for (int k = 0; k < s->reductions->num; ++k)
+                {
+                  fprintf (stderr, " r%d |", s->reductions->rules[k]->number);
+                  hit = true;
+                }
+
+            }
+
+          for (int k = 0; k < ngotos; ++k)
+            {
+              const state_number src = from_state[k];
+              const state_number dst = to_state[k];
+              const symbol_number var = states[dst]->accessing_symbol;
+
+              if (src == s->number && var == sym)
+                {
+                  fprintf (stderr, "  %d |", dst);
+                  hit = true;
+                }
+            }
+
+          if (!hit)
+            fprintf (stderr, "    |");
+
+        }
+        fprintf (stderr, "\n");
+    }
+
+  free (target_syms);
+  free (target_syms_inv);
+}
 
 void
 lalr_free (void)

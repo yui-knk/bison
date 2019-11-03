@@ -102,4 +102,6 @@ goto_number map_goto (state_number src, symbol_number sym);
 /* goto_follows[i] is the set of tokens following goto i.  */
 extern bitsetv goto_follows;
 
+void uncompressed_talbes_print (void);
+
 #endif /* !LALR_H_ */

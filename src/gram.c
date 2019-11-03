@@ -294,7 +294,7 @@ grammar_dump (FILE *out, const char *title)
         int const rhs_itemno = rule_i->rhs - ritem;
         int length = rule_rhs_length (rule_i);
         aver (item_number_as_rule_number (rule_i->rhs[length]) == i);
-        fprintf (out, "%3d (%2d, %2d, %2s, %2s)   %2d -> (%2u-%2u)",
+        fprintf (out, "%3d (%4d, %5d, %6s, %12s) %3d -> (%5u-%5u)",
                  i,
                  rule_i->prec ? rule_i->prec->prec : 0,
                  rule_i->prec ? rule_i->prec->assoc : 0,

@@ -65,7 +65,7 @@ core_print (size_t core_size, item_number *core, FILE *out)
 static void
 state_print (FILE *out)
 {
-  fputs ("STATES\n", out);
+  fputs ("\nSTATES\n", out);
   for (state_number i = 0; i < nstates; ++i)
     {
       state *s = states[i];
@@ -75,20 +75,21 @@ state_print (FILE *out)
         {
           if (j == 0)
             fprintf (out, "  items (nitems: %d)\n", s->nitems);
-          fprintf (out, "    %d\n", s->items[j]);
+          item_print (ritem + s->items[j], NULL, out);
+          fprintf(out, "\n");
         }
 
       for (int j = 0; j < s->transitions->num; ++j)
         {
           if (j == 0)
-            fputs ("  transitions\n", out);
-          fprintf (out, "    %d\n", s->transitions->states[j]->number);
+            fprintf (out, "  transitions (%d)\n", s->transitions->num);
+          fprintf (out, "    state: %d, accessing: %s\n", s->transitions->states[j]->number, symbols[s->transitions->states[j]->accessing_symbol]->tag);
         }
 
       for (int j = 0; j < s->reductions->num; ++j)
         {
           if (j == 0)
-            fputs ("  reductions\n", out);
+            fprintf (out, "  reductions (%d)\n", s->reductions->num);
           fprintf (out, "    %d\n", s->reductions->rules[j]->number);
         }
     }
@@ -124,7 +125,7 @@ state_list_append (symbol_number sym, size_t core_size, item_number *core)
 
 /* Symbols that can be "shifted" (including non terminals) from the
    current state.  */
-bitset shift_symbol;
+static bitset shift_symbol;
 
 static rule **redset;
 /* For the current state, the list of pointers to states that can be
@@ -135,7 +136,7 @@ static state **shiftset;
 
 
 /* KERNEL_BASE[symbol-number] -> list of item numbers (offsets inside
-   RITEM) of lenngth KERNEL_SIZE[symbol-number]. */
+   RITEM) of length KERNEL_SIZE[symbol-number]. */
 static item_number **kernel_base;
 static int *kernel_size;
 
@@ -162,6 +163,17 @@ allocate_itemsets (void)
         count += 1;
         symbol_count[sym] += 1;
       }
+
+   if (trace_flag & trace_me)
+     {
+        fprintf(stderr, "count in allocate_itemsets: %d\n", count);
+        for (symbol_number i = 0; i < nsyms; i++)
+        {
+          if (symbol_count[i])
+            fprintf(stderr, "  count of sym `%s' (%d) is `%d'\n", symbols[i]->tag, i, symbol_count[i]);
+        }
+        fprintf(stderr, "\n");
+     }
 
   /* See comments before new_itemsets.  All the vectors of items
      live inside KERNEL_ITEMS.  The number of active items after

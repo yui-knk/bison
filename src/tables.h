@@ -65,7 +65,7 @@
    default (from YYDEFACT or YYDEFGOTO) should be used.  Otherwise,
    YYTABLE[P+I] should be used.
 
-   YYDEFACT[S] = default reduction number in state s.  Performed when
+   YYDEFACT[S] = default reduction number in state S.  Performed when
    YYTABLE doesn't specify something else to do.  Zero means the default
    is an error.
 
