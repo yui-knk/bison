@@ -329,8 +329,8 @@ Reduced Grammar
 
 ntokens = 7, nvars = 4, nsyms = 11, nrules = 6, nritems = 17
 
-Terminals
----------
+Tokens
+------
 
 Value  Sprec  Sassoc  Tag
     0      0       0  $end
@@ -412,8 +412,8 @@ AT_BISON_CHECK([[--trace=grammar -o input.c input.y]], [], [],
 
 ntokens = 10, nvars = 2, nsyms = 12, nrules = 8, nritems = 29
 
-Terminals
----------
+Tokens
+------
 
 Value  Sprec  Sassoc  Tag
     0      0       0  $end

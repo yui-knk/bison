@@ -259,7 +259,7 @@ grammar_dump (FILE *out, const char *title)
            "ntokens = %d, nvars = %d, nsyms = %d, nrules = %d, nritems = %d\n\n",
            ntokens, nvars, nsyms, nrules, nritems);
 
-  fprintf (out, "Terminals\n---------\n\n");
+  fprintf (out, "Tokens\n------\n\n");
   {
     fprintf (out, "Value  Sprec  Sassoc  Tag\n");
 
