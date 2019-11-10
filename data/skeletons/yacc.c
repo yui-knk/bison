@@ -541,7 +541,7 @@ union yyalloc
    elements in the stack, and YYPTR gives the new location of the
    stack.  Advance YYPTR to a properly aligned location for the next
    stack.  */
-# define YYSTACK_RELOCATE(Stack_alloc, Stack)                           \
+# define YYSTACK_RELOCATE(yyptr, Stack_alloc, Stack)                    \
     do                                                                  \
       {                                                                 \
         YYPTRDIFF_T yynewbytes;                                         \
@@ -1534,9 +1534,9 @@ yysetstate:
                    YYSTACK_ALLOC (YY_CAST (YYSIZE_T, YYSTACK_BYTES (yystacksize))));
         if (! yyptr)
           goto yyexhaustedlab;
-        YYSTACK_RELOCATE (yyss_alloc, yyss);
-        YYSTACK_RELOCATE (yyvs_alloc, yyvs);]b4_locations_if([
-        YYSTACK_RELOCATE (yyls_alloc, yyls);])[
+        YYSTACK_RELOCATE (yyptr, yyss_alloc, yyss);
+        YYSTACK_RELOCATE (yyptr, yyvs_alloc, yyvs);]b4_locations_if([
+        YYSTACK_RELOCATE (yyptr, yyls_alloc, yyls);])[
 # undef YYSTACK_RELOCATE
         if (yyss1 != yyssa)
           YYSTACK_FREE (yyss1);
