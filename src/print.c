@@ -372,6 +372,157 @@ print_state (FILE *out, const state *s)
 `-----------------------------------------*/
 
 static void
+print_basic_info (FILE *out)
+{
+  fprintf (out, "{\n");
+
+  /* Symbols */
+  fprintf (out, "\"nsyms\": %d,\n", nsyms);
+  fprintf (out, "\"ntokens\": %d,\n", ntokens);
+  fprintf (out, "\"nnterms\": %d,\n", nnterms);
+  fputs ("\n", out);
+
+  fprintf (out, "\"symbols\": [\n");
+  for (symbol_number i = 0; i < nsyms; ++i)
+    {
+      char str[100];
+      symbol *sym = symbols[i];
+      uniqstr tag = sym->tag;
+
+      if (*tag == '"')
+        {
+          strncpy(str, tag + 1, strlen(tag) - 2);
+          str[strlen(tag) - 2] = '\0';
+          tag = str;
+        }
+
+      if (i != 0)
+        fprintf (out, ",");
+      else
+        fprintf (out, " ");
+
+      fprintf (out, "  {\"number\": %d, \"tag\": \"%s\"}\n", sym->content->number, tag);
+
+    }
+  fputs ("],\n", out);
+
+  /* Rules */
+  fprintf (out, "\"nrules\": %d,\n", nrules);
+
+  fprintf (out, "\"rules\": [\n");
+  for (rule_number i = 0; i < nrules; i += 1)
+    {
+      rule *r = &rules[i];
+
+      if (i != 0)
+        fprintf (out, ",");
+      else
+        fprintf (out, " ");
+
+      fprintf (out, "  {\"number\": %d, \"tag\": \"%s\", \"rhs\": ", r->number, r->lhs->symbol->tag);
+
+      if (0 <= *r->rhs)
+        {
+          fprintf (out, "[");
+          for (item_number *rhsp = r->rhs; 0 <= *rhsp; ++rhsp)
+            {
+              if (rhsp != r->rhs)
+                fprintf (out, ", ");
+              // fprintf (out, "{\"number\": %d, \"tag\": %s}", *rhsp, symbols[*rhsp]->tag);
+              fprintf (out, "%d", *rhsp);
+            }
+          fprintf (out, "]");
+        }
+      else
+        fprintf (out, "[%d]", *r->rhs);
+
+      fprintf (out, "}\n");
+    }
+  fputs ("],\n", out);
+
+
+  /* States */
+  fprintf (out, "\"nstates\": %d,\n", nstates);
+#define DOT_NUM (nsyms + 100)
+#define EMPTY_NUM (nsyms + 101)
+  fprintf (out, "\"dot_number\": %d,\n", DOT_NUM);
+  fprintf (out, "\"empty_number\": %d,\n", EMPTY_NUM);
+
+  /* See: print_core */
+  fprintf (out, "\"states\": [\n");
+  for (state_number i = 0; i < nstates; i++)
+    {
+      state *s = states[i];
+      item_index *sitems = s->items;
+      size_t snritems = s->nitems;
+
+      if (!snritems)
+        continue;
+
+      for (size_t j = 0; j < snritems; j++)
+        {
+          item_number *sp1 = ritem + sitems[j];
+          rule const *r = item_rule (sp1);
+
+          if (i || j)
+            fprintf (out, ", ");
+          else
+            fprintf (out, "  ");
+          fprintf (out, "  {\"number\": %d, \"lhs\": %d, \"rhs\": [", s->number, r->lhs->number);
+
+          /* See: item_print */
+          if (0 <= *r->rhs)
+            {
+              int c = 0;
+
+              for (item_number *sp = r->rhs; sp < sp1; sp++)
+                {
+                  if (c) fprintf (out, ", ");
+                  fprintf (out, "%d", symbols[*sp]->content->number);
+                  c++;
+                }
+
+              if (c) fprintf (out, ", ");
+              fprintf (out, "%d", DOT_NUM); /* dot */
+              c++;
+
+              for (item_number *sp = sp1; 0 <= *sp; ++sp)
+                {
+                  fprintf (out, ", %d", symbols[*sp]->content->number);
+                }
+            }
+          else
+            {
+              fprintf (out, "%d", EMPTY_NUM); /* empty */
+            }
+
+          fprintf (out, "]}\n");
+        }
+    }
+  fputs ("]\n", out);
+
+  /* End */
+  fputs ("}\n", out);
+}
+
+static void
+print_error_recovery_tokens (FILE *out)
+{
+  fprintf (out, "%s\n\n", _("Error Recovery Tokens"));
+
+  for (symbol_number i = 0; i < nsyms; ++i)
+    {
+      unsigned int cost = lowest_cost_for_symbols[i];
+      symbol *sym = symbols[i];
+
+      fprintf (out, "  [%d] (%s) = %d\n", sym->content->number, sym->tag, cost);
+    }
+
+  /* End */
+  fputs ("\n", out);
+}
+
+static void
 print_terminal_symbols (FILE *out)
 {
   /* TERMINAL (type #) : rule #s terminal is on RHS */
@@ -448,12 +599,25 @@ print_nonterminal_symbols (FILE *out)
     }
 }
 
+
+static char *
+concat2 (char const *str1, char const *str2)
+{
+  size_t len = strlen (str1) + strlen (str2);
+  char *res = xmalloc (len + 1);
+  char *cp;
+  cp = stpcpy (res, str1);
+  cp = stpcpy (cp, str2);
+  return res;
+}
+
 void
 print_results (void)
 {
   /* We used to use just .out if SPEC_NAME_PREFIX (-p) was used, but
      that conflicts with Posix.  */
   FILE *out = xfopen (spec_verbose_file, "w");
+  FILE *out_json = xfopen (concat2 (spec_verbose_file, ".json"), "w");
 
   reduce_output (out);
   grammar_rules_partial_print (out,
@@ -461,6 +625,8 @@ print_results (void)
                                rule_useless_in_parser_p);
   conflicts_output (out);
 
+  print_basic_info (out_json);
+  // print_error_recovery_tokens (out);
   grammar_rules_print (out);
   print_terminal_symbols (out);
   print_nonterminal_symbols (out);
@@ -472,4 +638,5 @@ print_results (void)
   bitset_free (no_reduce_set);
 
   xfclose (out);
+  xfclose (out_json);
 }
