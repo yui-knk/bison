@@ -506,22 +506,22 @@ print_basic_info (FILE *out)
   fputs ("}\n", out);
 }
 
-static void
-print_error_recovery_tokens (FILE *out)
-{
-  fprintf (out, "%s\n\n", _("Error Recovery Tokens"));
+// static void
+// print_error_recovery_tokens (FILE *out)
+// {
+//   fprintf (out, "%s\n\n", _("Error Recovery Tokens"));
 
-  for (symbol_number i = 0; i < nsyms; ++i)
-    {
-      unsigned int cost = lowest_cost_for_symbols[i];
-      symbol *sym = symbols[i];
+//   for (symbol_number i = 0; i < nsyms; ++i)
+//     {
+//       unsigned int cost = lowest_cost_for_symbols[i];
+//       symbol *sym = symbols[i];
 
-      fprintf (out, "  [%d] (%s) = %d\n", sym->content->number, sym->tag, cost);
-    }
+//       fprintf (out, "  [%d] (%s) = %d\n", sym->content->number, sym->tag, cost);
+//     }
 
-  /* End */
-  fputs ("\n", out);
-}
+//   /* End */
+//   fputs ("\n", out);
+// }
 
 static void
 print_terminal_symbols (FILE *out)
