@@ -401,7 +401,8 @@ print_basic_info (FILE *out)
       else
         fprintf (out, " ");
 
-      fprintf (out, "  {\"number\": %d, \"tag\": \"%s\"}\n", sym->content->number, tag);
+      fprintf (out, "  {\"number\": %d, \"code\": %d, \"tag\": \"%s\", \"type_name\": \"%s\"}\n",
+        sym->content->number, sym->content->code, tag, sym->content->type_name);
 
     }
   fputs ("],\n", out);
@@ -419,7 +420,7 @@ print_basic_info (FILE *out)
       else
         fprintf (out, " ");
 
-      fprintf (out, "  {\"number\": %d, \"tag\": \"%s\", \"rhs\": ", r->number, r->lhs->symbol->tag);
+      fprintf (out, "  {\"number\": %d, \"lhs_tag\": \"%s\", \"lhs\": %d, \"rhs\": ", r->number, r->lhs->symbol->tag, r->lhs->number);
 
       if (0 <= *r->rhs)
         {
