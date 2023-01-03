@@ -830,6 +830,7 @@ pack_table (void)
         /* Action of I were already coded for S.  */
         place = base[s];
 
+      fprintf (stdout, "pack_table. i: %4d, state: %4d, s: %4d, place: %4d, lowzero: %4d\n", i, order[i], s, place, lowzero);
       pos_set_set (place);
       base[order[i]] = place;
     }
@@ -839,6 +840,58 @@ pack_table (void)
   table_ninf = table_ninf_remap (table, high + 1, ACTION_NUMBER_MINIMUM);
 
   bitset_free (pos_set);
+}
+
+static void
+table_print (void)
+{
+  fprintf (stdout, "table_print:\n\n");
+
+  fprintf (stdout, "order [\n");
+  for (int i = 0; i < nvectors; i++)
+  {
+    fprintf (stdout, "%d, ", order[i]);
+
+    if (i % 10 == 9) fprintf (stdout, "\n");
+  }
+  fprintf (stdout, "]\n\n");
+
+
+  fprintf (stdout, "width [\n");
+  for (int i = 0; i < nvectors; i++)
+  {
+    if (0 < tally[i])
+      fprintf (stdout, "%d, ", width[i]);
+    else
+      fprintf (stdout, "%d, ", 0);
+
+    if (i % 10 == 9) fprintf (stdout, "\n");
+  }
+  fprintf (stdout, "]\n\n");
+
+
+  fprintf (stdout, "tally [\n");
+  for (int i = 0; i < nvectors; i++)
+  {
+    if (0 < tally[i])
+      fprintf (stdout, "%d, ", tally[i]);
+    else
+      fprintf (stdout, "%d, ", 0);
+
+    if (i % 10 == 9) fprintf (stdout, "\n");
+  }
+  fprintf (stdout, "]\n\n");
+
+
+  fprintf (stdout, "from and to [\n");
+  for (int i = 0; i < nvectors; i++)
+  {
+    fprintf (stdout, "[");
+    for (int j = 0; j < tally[i]; j++)
+      fprintf (stdout, "[%d, %d] ", froms[i][j], tos[i][j]);
+    fprintf (stdout, "]    ");
+  }
+  fprintf (stdout, "]\n\n");
 }
 
 
@@ -875,6 +928,7 @@ tables_generate (void)
   order = xcalloc (nvectors, sizeof *order);
   sort_actions ();
   pack_table ();
+  table_print ();
   free (order);
 
   free (tally);
