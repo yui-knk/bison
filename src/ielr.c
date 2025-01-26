@@ -203,6 +203,34 @@ ielr_compute_internal_follow_edges (bitset ritem_sees_lookahead_set,
     relation_print ("internal_follow_edges", *edgesp, ngotos, NULL, stderr);
 }
 
+// See: print_core
+static void
+print_item(item_number *sp1, FILE *out, char *indent)
+{
+  rule const *r = item_rule (sp1);
+
+  fprintf (out, "%s", indent);
+  fprintf (out, "%s: ", r->lhs->symbol->tag);
+
+  for (item_number const *sp = r->rhs; sp < sp1; sp++)
+    {
+      fprintf (out, "%s", symbols[*sp]->tag);
+      fprintf (out, " ");
+    }
+
+  fprintf (out, "•");
+
+  if (0 <= *r->rhs)
+    for (item_number const *sp = sp1; 0 <= *sp; ++sp)
+      {
+        fprintf (out, " ");
+        fprintf (out, "%s", symbols[*sp]->tag);
+      }
+  else
+    fprintf (out, " %%empty");
+
+}
+
 /**
  * \pre:
  *   - \c ritem_sees_lookahead_set was computed by
@@ -249,8 +277,27 @@ ielr_compute_follow_kernel_items (bitset ritem_sees_lookahead_set,
 
   if (trace_flag & trace_ielr)
     {
-      fprintf (stderr, "follow_kernel_items:\n");
-      debug_bitsetv (*follow_kernel_itemsp);
+      // fprintf (stderr, "follow_kernel_items:\n");
+      // debug_bitsetv (*follow_kernel_itemsp);
+
+      fprintf (stderr, "  follow_kernel_items:\n");
+      for (int i = 0; i < ngotos; ++i) {
+        bitset_iterator iter;
+        size_t j;
+
+        fprintf (stderr, "    goto[%d]:\n", i);
+
+        BITSET_FOR_EACH (iter, (*follow_kernel_itemsp)[i], j, 0) {
+          state *s = states[from_state[i]];
+          item_index *items = s->items;
+          item_number *sp = ritem + items[j];
+          print_item (sp, stderr, "        ");
+          fputc ('\n', stderr);
+        }
+
+      }
+
+      fputc ('\n', stderr);
     }
 }
 
@@ -306,8 +353,23 @@ ielr_compute_always_follows (goto_number ***edgesp,
   if (trace_flag & trace_ielr)
     {
       relation_print ("always follow edges", *edgesp, ngotos, NULL, stderr);
-      fprintf (stderr, "always_follows:\n");
-      debug_bitsetv (*always_followsp);
+
+      // fprintf (stderr, "always_follows:\n");
+      // debug_bitsetv (*always_followsp);
+
+      fprintf (stderr, "  always_follows:\n");
+      for (int i = 0; i < ngotos; i++) {
+        bitset_iterator iter;
+        size_t j;
+
+        fprintf (stderr, "    goto[%d]: {", i);
+        BITSET_FOR_EACH (iter, (*always_followsp)[i], j, 0) {
+          fprintf (stderr, "%s ", symbols[j]->tag);
+        }
+        fprintf (stderr, "}\n");
+      }
+
+      fputc ('\n', stderr);
     }
 }
 
@@ -1095,6 +1157,35 @@ ielr_split_states (bitsetv follow_kernel_items, bitsetv always_follows,
     }
 }
 
+static void
+goto_print (goto_number i, FILE *out)
+{
+  const state_number src = from_state[i];
+  const state_number dst = to_state[i];
+  symbol_number var = states[dst]->accessing_symbol;
+  fprintf (out,
+           "goto[%zu] = (s_%d - %s -> s_%d)", i, src, symbols[var]->tag, dst);
+}
+
+static void
+goto_follows_print(FILE *out)
+{
+  fprintf (out, "  goto_follows:\n");
+
+  for (goto_number i = 0; i < ngotos; ++i)
+    {
+      bitset_iterator iter;
+      symbol_number sym;
+
+      fputs ("    [", out);
+      goto_print (i, out);
+      fputs ("] =", out);
+      BITSET_FOR_EACH (iter, goto_follows[i], sym, 0)
+        fprintf (out, " %s", symbols[sym]->tag);
+      fputc ('\n', out);
+    }
+  fputc ('\n', out);
+}
 
 void
 ielr (void)
@@ -1139,9 +1230,26 @@ ielr (void)
     AnnotationIndex max_annotations = 0;
 
     {
+        /* Phase 0: : LALR(1).  */
+      if (trace_flag & trace_ielr)
+        {
+          fprintf (stderr, "Phase 0: =====\n");
+
+          goto_follows_print(stderr);
+          fprintf (stderr, "\n");
+        }
+    }
+
+    {
       /* Phase 1: Compute Auxiliary Tables.  */
       state ***predecessors;
       timevar_push (tv_ielr_phase1);
+
+      if (trace_flag & trace_ielr)
+        {
+          fprintf (stderr, "Phase 1: =====\n");
+        }
+
       ielr_compute_auxiliary_tables (
         &follow_kernel_items, &always_follows,
         lr_type == LR_TYPE__CANONICAL_LR ? NULL : &predecessors);
@@ -1149,6 +1257,12 @@ ielr (void)
 
       /* Phase 2: Compute Annotations.  */
       timevar_push (tv_ielr_phase2);
+
+      if (trace_flag & trace_ielr)
+        {
+          fprintf (stderr, "Phase 2: =====\n");
+        }
+
       if (lr_type != LR_TYPE__CANONICAL_LR)
         {
           obstack_init (&annotations_obstack);
@@ -1168,6 +1282,11 @@ ielr (void)
     /* Phase 3: Split States.  */
     timevar_push (tv_ielr_phase3);
     {
+      if (trace_flag & trace_ielr)
+        {
+          fprintf (stderr, "Phase 3: =====\n");
+        }
+
       state_number nstates_lr0 = nstates;
       ielr_split_states (follow_kernel_items, always_follows,
                          annotation_lists, max_annotations);
@@ -1186,6 +1305,12 @@ ielr (void)
 
   /* Phase 4: Compute Reduction Lookaheads.  */
   timevar_push (tv_ielr_phase4);
+
+  if (trace_flag & trace_ielr)
+    {
+      fprintf (stderr, "Phase 4: =====\n");
+    }
+
   free (goto_map);
   free (from_state);
   free (to_state);
