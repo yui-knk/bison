@@ -572,12 +572,18 @@ ielr_compute_annotation_lists (bitsetv follow_kernel_items,
     }
   {
     InadequacyListNodeCount inadequacy_list_node_count = 0;
+    if (trace_flag & trace_ielr) {
+      fprintf (stderr, "  AnnotationList__compute_from_inadequacies:\n");
+    }
     for (state_number i = 0; i < nstates; ++i)
       AnnotationList__compute_from_inadequacies (
         states[i], follow_kernel_items, always_follows, predecessors,
         item_lookahead_sets, *inadequacy_listsp, *annotation_listsp,
         annotation_counts, &max_contributions, annotations_obstackp,
         &inadequacy_list_node_count);
+    if (trace_flag & trace_ielr) {
+      fprintf (stderr, "\n");
+    }
   }
   *max_annotationsp = 0;
   for (state_number i = 0; i < nstates; ++i)
@@ -588,6 +594,45 @@ ielr_compute_annotation_lists (bitsetv follow_kernel_items,
     }
   if (trace_flag & trace_ielr)
     {
+      // item_lookahead_sets
+      fprintf (stderr, "  item_lookahead_sets:\n");
+
+      for (state_number i = 0; i < nstates; ++i) {
+        if (!item_lookahead_sets[i]) continue;
+        state *s = states[i];
+        fprintf (stderr, "    state[%d]\n", i);
+
+        for (size_t j = 0; j < s->nitems; j++) {
+          if (!item_lookahead_sets[i][j]) continue;
+          bitset_iterator iter;
+          int token_i;
+
+          fprintf (stderr, "      {");
+          BITSET_FOR_EACH (iter, item_lookahead_sets[i][j], token_i, 0) {
+            fprintf (stderr, "%s ", symbols[token_i]->tag);
+          }
+          fprintf (stderr, "}\n");
+        }
+
+        fputc ('\n', stderr);
+      }
+
+      // inadequacy_lists
+      fprintf (stderr, "  inadequacy_lists:\n");
+      for (state_number i = 0; i < nstates; ++i) {
+        if (!(*inadequacy_listsp)[i]) continue;
+        fprintf (stderr, "    state[%d]\n", i);
+
+        for (InadequacyList *list = (*inadequacy_listsp)[i]; list; list = list->next) {
+          fprintf (stderr, "%d\n", 0);
+        }
+      }
+
+      // compute_lhs_contributions
+      // annotate_manifestation
+      // annotate_predecessor
+
+      // annotation_lists
       for (state_number i = 0; i < nstates; ++i)
         {
           fprintf (stderr, "Inadequacy annotations for state %d:\n", i);
@@ -1228,6 +1273,10 @@ ielr (void)
     AnnotationList **annotation_lists = NULL;
     struct obstack annotations_obstack;
     AnnotationIndex max_annotations = 0;
+
+    if (trace_flag & trace_ielr) {
+        AnnotationList__trace_ielr = true;
+    }
 
     {
         /* Phase 0: : LALR(1).  */

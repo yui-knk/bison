@@ -26,6 +26,8 @@
 # include "InadequacyList.h"
 # include "state.h"
 
+extern bool AnnotationList__trace_ielr;
+
 typedef int AnnotationIndex;
 
 /**

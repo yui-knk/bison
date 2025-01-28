@@ -26,6 +26,8 @@
 #include "ielr.h"
 #include "lalr.h"
 
+bool AnnotationList__trace_ielr = false;
+
 /**
  * \pre
  *   - <tt>annotations_obstackp != NULL</tt>.
@@ -401,15 +403,41 @@ AnnotationList__compute_from_inadequacies (
   struct obstack *annotations_obstackp,
   InadequacyListNodeCount *inadequacy_list_node_count)
 {
+  if (AnnotationList__trace_ielr) {
+    fprintf (stderr, "    state[%d]\n", s->number);
+  }
+
   /* Return an empty list if s->lookaheads = NULL.  */
-  if (s->consistent)
+  if (s->consistent) {
+    if (AnnotationList__trace_ielr) {
+      fprintf (stderr, "      State is consistent then skip\n");
+    }
     return;
+  }
 
   bitsetv all_lookaheads = bitsetv_create (s->nitems, ntokens, BITSET_FIXED);
   bitsetv_ones (all_lookaheads);
   bitset shift_tokens = AnnotationList__compute_shift_tokens (s->transitions);
   bitset conflicted_tokens =
     AnnotationList__compute_conflicted_tokens (shift_tokens, s->reductions);
+
+  if (AnnotationList__trace_ielr) {
+    if (!bitset_empty_p (conflicted_tokens)) {
+      fprintf (stderr, "      state[%d] ", s->number);
+
+      bitset_iterator iter;
+      int token_i;
+
+      fprintf (stderr, "{");
+      BITSET_FOR_EACH(iter, conflicted_tokens, token_i, 0) {
+          fprintf (stderr, "%s ", symbols[token_i]->tag);
+      }
+      fprintf (stderr, "}\n");
+    }
+    else {
+        fprintf (stderr, "      No conflicted_tokens\n");
+    }
+  }
 
   /* Add an inadequacy annotation for each conflicted_token.  */
   bitset_iterator biter_conflict;
@@ -419,6 +447,10 @@ AnnotationList__compute_from_inadequacies (
       AnnotationList *annotation_node;
       ContributionIndex contribution_count = 0;
 
+      if (AnnotationList__trace_ielr) {
+        fprintf (stderr, "        Token %s\n", symbols[conflicted_token]->tag);
+      }
+
       /* Allocate the annotation node.  */
       {
         for (int rule_i = 0; rule_i < s->reductions->num; ++rule_i)
@@ -427,6 +459,10 @@ AnnotationList__compute_from_inadequacies (
             ++contribution_count;
         if (bitset_test (shift_tokens, conflicted_token))
           ++contribution_count;
+
+        if (AnnotationList__trace_ielr) {
+          fprintf (stderr, "          contribution_count %d\n", contribution_count);
+        }
         annotation_node =
           AnnotationList__alloc_on_obstack (contribution_count,
                                             annotations_obstackp);
@@ -493,6 +529,14 @@ AnnotationList__compute_from_inadequacies (
            the inadequacy to save space now plus time during state splitting.
          - Otherwise, record the annotation and the inadequacy, and compute any
            resulting annotations needed on predecessor states.  */
+      if (AnnotationList__trace_ielr) {
+        if (potential_contribution) {
+          fprintf (stderr, "          is potential_contribution\n");
+        } else {
+          fprintf (stderr, "          is not potential_contribution\n");
+        }
+      }
+
       if (potential_contribution)
         {
           if (bitset_test (shift_tokens, conflicted_token))
@@ -507,15 +551,21 @@ AnnotationList__compute_from_inadequacies (
                 inadequacy_list_node_count);
             actions = NULL;
             annotation_node->inadequacyNode = conflict_node;
-            if (ContributionIndex__none
-                != AnnotationList__computeDominantContribution (
-                     annotation_node, s->nitems, all_lookaheads, true))
+            ContributionIndex ci = AnnotationList__computeDominantContribution (annotation_node, s->nitems, all_lookaheads, true);
+            if (ContributionIndex__none != ci)
               {
+                if (AnnotationList__trace_ielr) {
+                  fprintf (stderr, "          ci is ContributionIndex__none\n");
+                }
                 obstack_free (annotations_obstackp, annotation_node);
                 InadequacyList__delete (conflict_node);
               }
             else
               {
+                if (AnnotationList__trace_ielr) {
+                  fprintf (stderr, "          ci is %d\n", ci);
+                }
+
                 InadequacyList__prependTo (conflict_node,
                                            &inadequacy_lists[s->number]);
                 {
@@ -667,17 +717,31 @@ AnnotationList__computeDominantContribution (AnnotationList const *self,
 
   symbol *token = self->inadequacyNode->inadequacy.conflict.token;
 
+  if (AnnotationList__trace_ielr) {
+    fprintf (stderr, "          AnnotationList__computeDominantContribution:\n");
+  }
+
   /* S/R conflict.  */
   if (ci_shift != ContributionIndex__none)
     {
       bool find_stable_domination_over_shift = false;
       bool find_stable_error_action_domination = false;
+
+      if (AnnotationList__trace_ielr) {
+        fprintf (stderr, "            S/R conflict\n");
+      }
+
       {
         int shift_precedence = token->content->prec;
 
         /* If the token has no precedence set, shift is always chosen.  */
-        if (!shift_precedence)
+        if (!shift_precedence) {
+          if (AnnotationList__trace_ielr) {
+            fprintf (stderr, "            shift is always chosen\n");
+          }
+          
           return ci_shift;
+        }
 
         /* Figure out which reductions contribute, which of those would
            dominate in a R/R comparison, and whether any reduction dominates
@@ -760,7 +824,11 @@ AnnotationList__computeDominantContribution (AnnotationList const *self,
 
   /* R/R conflict, so the reduction with the lowest rule number dominates.
      Fortunately, contributions are sorted by rule number.  */
-  for (ContributionIndex ci = 0; ci < self->inadequacyNode->contributionCount; ++ci)
+  for (ContributionIndex ci = 0; ci < self->inadequacyNode->contributionCount; ++ci) {
+    if (AnnotationList__trace_ielr) {
+      fprintf (stderr, "            R/R conflict\n");
+    }
+
     if (AnnotationList__stateMakesContribution (self, nitems, ci, lookaheads))
       {
         if (require_split_stable
@@ -768,5 +836,6 @@ AnnotationList__computeDominantContribution (AnnotationList const *self,
           return ContributionIndex__none;
         return ci;
       }
+  }
   return ContributionIndex__none;
 }
